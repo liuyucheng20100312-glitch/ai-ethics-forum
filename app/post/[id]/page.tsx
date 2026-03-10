@@ -26,6 +26,7 @@ export default function PostDetailPage() {
 
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<"notfound" | "error" | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replies, setReplies] = useState<any[]>([]);
   const [liked, setLiked] = useState(false);
@@ -84,15 +85,24 @@ export default function PostDetailPage() {
   }
 
   const fetchPost = async () => {
+    setFetchError(null);
     try {
-      const response = await fetch(`/api/posts/${postId}`);
-      if (!response.ok) throw new Error("fetch failed");
+      // Use authFetch so the Bearer token is always included
+      const response = await authFetch(`/api/posts/${postId}`);
+      if (response.status === 404) {
+        setFetchError("notfound");
+        return;
+      }
+      if (!response.ok) {
+        setFetchError("error");
+        return;
+      }
       const data = await response.json();
       setPost(data);
       fetchReplies();
       if (user) checkFollowed(data.author);
-    } catch (error) {
-      console.error("获取帖子失败:", error);
+    } catch {
+      setFetchError("error");
     } finally {
       setLoading(false);
     }
@@ -150,7 +160,23 @@ export default function PostDetailPage() {
   };
 
   if (loading) return <p className="text-center text-gray-500">{t("loading")}</p>;
-  if (!post) return <p className="text-center text-gray-500">{t("postNotFound")}</p>;
+  if (fetchError === "notfound") return (
+    <div className="text-center py-20">
+      <p className="text-gray-500 mb-4">{t("postNotFound")}</p>
+      <Link href="/forum" className="text-blue-600 hover:underline">{t("backToForum")}</Link>
+    </div>
+  );
+  if (fetchError === "error" || !post) return (
+    <div className="text-center py-20">
+      <p className="text-gray-500 mb-4">{language === "zh" ? "加载失败，请稍后重试" : "Failed to load. Please try again."}</p>
+      <div className="flex gap-4 justify-center">
+        <button onClick={() => { setLoading(true); fetchPost(); }} className="text-blue-600 hover:underline">
+          {language === "zh" ? "重试" : "Retry"}
+        </button>
+        <Link href="/forum" className="text-gray-500 hover:underline">{t("backToForum")}</Link>
+      </div>
+    </div>
+  );
 
   const hasEnglish = !!(post.titleEn && post.contentEn);
   const displayTitle = showEn && post.titleEn ? post.titleEn : post.title;
