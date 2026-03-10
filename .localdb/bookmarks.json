@@ -1,0 +1,14 @@
+[
+  {
+    "userId": "offline_admin",
+    "itemId": "DeepSeek",
+    "itemType": "tool",
+    "title": "DeepSeek",
+    "subtitle": "AI对话",
+    "url": "https://chat.deepseek.com",
+    "emoji": "🔍",
+    "bookmarkedAt": "2026-03-10T12:44:21.605Z",
+    "_id": "7ed8f28cb4c4ece017647051",
+    "createdAt": "2026-03-10T12:44:21.605Z"
+  }
+]

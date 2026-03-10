@@ -18,6 +18,10 @@ export function middleware(request: NextRequest) {
 
   const token = request.cookies.get("ai_ethics_token")?.value;
   if (!token) {
+    // For API routes, return 401 JSON instead of redirecting
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);

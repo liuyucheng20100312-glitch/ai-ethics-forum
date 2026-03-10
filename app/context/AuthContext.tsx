@@ -66,6 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         setToken(t);
         setUser(data);
+        // Re-set cookie in case it was cleared (e.g. browser cache wipe)
+        document.cookie = `ai_ethics_token=${t}; path=/; max-age=${30 * 24 * 3600}; SameSite=Lax`;
       } else {
         localStorage.removeItem(TOKEN_KEY);
         setToken(null);
