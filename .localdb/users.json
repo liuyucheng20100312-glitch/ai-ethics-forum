@@ -1,0 +1,50 @@
+[
+  {
+    "username": "testlocal",
+    "passwordHash": "$2b$10$TMrslDLodaiimobENK4coe.e.onsgyreUoyrecq5aE9De8M8/UaE6",
+    "bio": "对AI伦理充满好奇的探索者",
+    "avatar": "",
+    "createdAt": "2026-03-09T02:14:52.748Z",
+    "_id": "6c33b7f70589b0dc91f41e3b"
+  },
+  {
+    "_id": "4312810f2b9d3b9d11bc3188",
+    "username": "AI_观察者",
+    "passwordHash": "$2b$10$placeholder",
+    "bio": "AI伦理讨论参与者",
+    "avatar": "",
+    "createdAt": "2026-02-07T02:37:15.252Z"
+  },
+  {
+    "_id": "f2afa11de99b1676da649775",
+    "username": "伦理研究员",
+    "passwordHash": "$2b$10$placeholder",
+    "bio": "AI伦理讨论参与者",
+    "avatar": "",
+    "createdAt": "2026-02-07T02:37:15.253Z"
+  },
+  {
+    "_id": "84903fa08505bf3fa4bc78f7",
+    "username": "技术批评者",
+    "passwordHash": "$2b$10$placeholder",
+    "bio": "AI伦理讨论参与者",
+    "avatar": "",
+    "createdAt": "2026-02-07T02:37:15.253Z"
+  },
+  {
+    "_id": "a0210f5ee8fbb4db2bf50655",
+    "username": "安全工程师",
+    "passwordHash": "$2b$10$placeholder",
+    "bio": "AI伦理讨论参与者",
+    "avatar": "",
+    "createdAt": "2026-02-07T02:37:15.253Z"
+  },
+  {
+    "_id": "06b6036c80240a7d69d6e3c1",
+    "username": "学生探索者",
+    "passwordHash": "$2b$10$placeholder",
+    "bio": "AI伦理讨论参与者",
+    "avatar": "",
+    "createdAt": "2026-02-07T02:37:15.253Z"
+  }
+]

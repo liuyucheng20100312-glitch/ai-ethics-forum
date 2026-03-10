@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+/* Class-based dark mode for Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Global dark mode overrides */
+@layer base {
+  html.dark {
+    color-scheme: dark;
+  }
+  html.dark body {
+    background-color: #111827;
+    color: #f3f4f6;
+  }
+}
