@@ -10,5 +10,17 @@
     "bookmarkedAt": "2026-03-10T12:44:21.605Z",
     "_id": "7ed8f28cb4c4ece017647051",
     "createdAt": "2026-03-10T12:44:21.605Z"
+  },
+  {
+    "userId": "offline_admin",
+    "itemId": "豆包",
+    "itemType": "tool",
+    "title": "豆包",
+    "subtitle": "AI对话",
+    "url": "https://www.doubao.com",
+    "emoji": "🫘",
+    "bookmarkedAt": "2026-03-10T12:48:06.287Z",
+    "_id": "7913365538f773721e86d0fe",
+    "createdAt": "2026-03-10T12:48:06.287Z"
   }
 ]

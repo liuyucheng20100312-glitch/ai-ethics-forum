@@ -9,6 +9,9 @@ export function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/posts") ||
+    pathname.startsWith("/api/replies") ||
+    pathname.startsWith("/api/creative") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/school-logo") ||
     PUBLIC_PATHS.some((p) => pathname === p)
