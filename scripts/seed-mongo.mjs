@@ -5,7 +5,7 @@
 import { MongoClient, ObjectId } from "mongodb";
 
 const URI = "mongodb+srv://admin:kslmFVQVylH2VXgD@cluster0.qqqwmn9.mongodb.net/?retryWrites=true&w=majority";
-const DB_NAME = "ai_ethics_forum";
+const DB_NAME = "ai-ethics-forum";
 
 const posts = [
   {
