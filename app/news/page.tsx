@@ -6,6 +6,48 @@ import { useAuth } from "../context/AuthContext";
 const categories = ["全部", "政策法规", "学术研究", "行业动态", "校园新闻"];
 
 const news = [
+  // ── 2026年3月 ──────────────────────────────────────────────
+  {
+    id: "openai-gpt5-agent-march-2026",
+    title: "OpenAI发布GPT-5 Agent：可自主完成多步骤任务",
+    category: "行业动态",
+    date: "2026-03-08",
+    source: "OpenAI Blog",
+    summary: "GPT-5 Agent具备浏览器操作、代码执行、文件管理等自主能力，引发学界对AI自主行动边界与责任归属的广泛讨论。",
+  },
+  {
+    id: "china-ai-education-standard-2026",
+    title: "教育部发布中小学AI素养教育标准（征求意见稿）",
+    category: "政策法规",
+    date: "2026-03-06",
+    source: "教育部",
+    summary: "标准将AI伦理纳入K-12必修内容，要求学生理解算法偏见、数据隐私与AI创作版权等核心概念。",
+  },
+  {
+    id: "deepseek-r2-safety-2026",
+    title: "DeepSeek R2发布后安全评估：开源大模型的双刃剑风险",
+    category: "学术研究",
+    date: "2026-03-05",
+    source: "AI安全研究院",
+    summary: "多家机构对开源模型的红队测试显示，无护栏的开源版本可被低成本微调用于有害内容生成，监管挑战日益突出。",
+  },
+  {
+    id: "eu-ai-act-enforcement-march-2026",
+    title: "欧盟AI法案首批执法案例公布，三家企业因高风险AI违规被罚",
+    category: "政策法规",
+    date: "2026-03-03",
+    source: "欧盟AI办公室",
+    summary: "执法重点包括人脸识别滥用和招聘AI的歧视性结果，最高罚款达全球年营业额6%。",
+  },
+  {
+    id: "gcgs-ai-debate-march-2026",
+    title: "广东碧桂园学校举办「AI时代的学术诚信」主题辩论赛",
+    category: "校园新闻",
+    date: "2026-03-01",
+    source: "学校资讯",
+    summary: "本届辩题为「AI辅助写作是否属于学术不端」，正反双方围绕工具属性与创作主体展开激烈辩论，最终以平局收场。",
+  },
+  // ── 2026年2月 ──────────────────────────────────────────────
   {
     id: "eu-ai-act-2026",
     title: "欧盟AI法案正式生效，全球AI监管进入新阶段",
