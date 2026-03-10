@@ -1,8 +1,14 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
+import { v2 as cloudinary } from "cloudinary";
 import path from "path";
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // GET /api/creative – all creative posts
 export async function GET() {
@@ -46,12 +52,24 @@ export async function POST(request: NextRequest) {
       else if ([".mp3", ".wav", ".ogg", ".m4a", ".flac"].includes(ext)) fileType = "audio";
       else return NextResponse.json({ error: "不支持的文件类型" }, { status: 400 });
 
-      const safeName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-      const uploadDir = path.join(process.cwd(), "public", "uploads", "creative");
-      await mkdir(uploadDir, { recursive: true });
       const bytes = await file.arrayBuffer();
-      await writeFile(path.join(uploadDir, safeName), Buffer.from(bytes));
-      fileUrl = `/uploads/creative/${safeName}`;
+      const buffer = Buffer.from(bytes);
+
+      const uploadResult = await new Promise<{ secure_url: string }>((resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          {
+            resource_type: fileType === "image" ? "image" : "video",
+            folder: "ai-ethics-forum/creative",
+            use_filename: false,
+          },
+          (error, result) => {
+            if (error || !result) reject(error ?? new Error("Upload failed"));
+            else resolve(result as { secure_url: string });
+          }
+        ).end(buffer);
+      });
+
+      fileUrl = uploadResult.secure_url;
       fileName = file.name;
     }
   } else {
