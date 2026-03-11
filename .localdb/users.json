@@ -46,5 +46,48 @@
     "bio": "AI伦理讨论参与者",
     "avatar": "",
     "createdAt": "2026-02-07T02:37:15.253Z"
+  },
+  {
+    "_id": "69a43641c556630b6ec4fc30",
+    "username": "testuser1",
+    "passwordHash": "$2b$10$tXsc1awPSwSJP43rt1Ysa.NOgK6X9iytZjtcuYDwlWNnfnkLEsRyC",
+    "bio": "对AI伦理充满好奇的探索者",
+    "avatar": "",
+    "createdAt": "2026-03-01T12:51:13.567Z"
+  },
+  {
+    "_id": "69a4368ac556630b6ec4fc31",
+    "username": "新用户甲",
+    "passwordHash": "$2b$10$BHD0jYAPuKl5JI1ABaBaEOPwaXmM5aNdnE9/EWk1v5SW/Ye2zBzhi",
+    "bio": "对AI伦理充满好奇的探索者",
+    "avatar": "",
+    "createdAt": "2026-03-01T12:52:26.993Z"
+  },
+  {
+    "_id": "69a436c7c556630b6ec4fc32",
+    "username": "广碧",
+    "passwordHash": "",
+    "bio": "对AI伦理充满好奇的探索者",
+    "avatar": "",
+    "createdAt": "2026-03-01T12:53:27.824Z"
+  },
+  {
+    "_id": "69ae2fc1e51a168b4101d4c3",
+    "username": "测试用户A",
+    "passwordHash": "$2b$10$GMr1OfLdIfI4M9c6yoWId.ew1AlHwoMVhQa11UuAeQg9jp2tne142",
+    "bio": "对AI伦理充满好奇的探索者",
+    "avatar": "",
+    "createdAt": "2026-03-09T02:26:09.661Z"
+  },
+  {
+    "_id": "69b0decc8e4e784386282491",
+    "username": "G24lyc",
+    "passwordHash": "$2b$10$iVEKIrQ/MBTpyT//.Cz8.uY7vNKXWPnJKaON/1Ow7NXSW0gC4TVXa",
+    "bio": "对AI伦理充满好奇的探索者",
+    "avatar": "",
+    "realName": "刘瑀丞",
+    "classId": "G2-4",
+    "verified": true,
+    "createdAt": "2026-03-11T03:17:32.700Z"
   }
 ]
