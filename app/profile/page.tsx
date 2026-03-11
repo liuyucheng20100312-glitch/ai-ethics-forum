@@ -202,13 +202,35 @@ export default function ProfilePage() {
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert("图片不能超过 5MB");
+    if (file.size > 10 * 1024 * 1024) {
+      alert("图片不能超过 10MB");
       e.target.value = "";
       return;
     }
-    setPendingFile(file);
-    setPendingAvatar(URL.createObjectURL(file));
+    // Resize to max 400x400 using Canvas before preview/upload
+    const img = new window.Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 400;
+      let { width, height } = img;
+      if (width > MAX || height > MAX) {
+        if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
+        else { width = Math.round(width * MAX / height); height = MAX; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(objectUrl);
+        if (!blob) return;
+        const resizedFile = new File([blob], "avatar.jpg", { type: "image/jpeg" });
+        setPendingFile(resizedFile);
+        setPendingAvatar(URL.createObjectURL(resizedFile));
+      }, "image/jpeg", 0.85);
+    };
+    img.src = objectUrl;
     e.target.value = "";
   }
 

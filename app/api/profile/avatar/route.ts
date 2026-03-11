@@ -46,8 +46,8 @@ export async function POST(request: NextRequest) {
     if (!file || file.size === 0) {
       return NextResponse.json({ error: "请选择图片" }, { status: 400 });
     }
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: "图片不能超过 5MB" }, { status: 400 });
+    if (file.size > 2 * 1024 * 1024) {
+      return NextResponse.json({ error: "图片不能超过 2MB（已自动压缩，若仍失败请换张更小的图）" }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
@@ -72,7 +72,17 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const userIdFilter = { _id: tryObjectId(user.userId) as never };
-    await db.collection("users").updateOne(userIdFilter, { $set: { avatar: avatarUrl } });
+    const result = await db.collection("users").updateOne(userIdFilter, { $set: { avatar: avatarUrl } });
+    if (result.matchedCount === 0) {
+      // Fallback: try matching by username
+      const resultByUsername = await db.collection("users").updateOne(
+        { username: user.username },
+        { $set: { avatar: avatarUrl } }
+      );
+      if (resultByUsername.matchedCount === 0) {
+        return NextResponse.json({ error: "找不到用户记录，请重新登录后重试" }, { status: 404 });
+      }
+    }
 
     return NextResponse.json({ ok: true, avatar: avatarUrl });
   } catch (e) {
