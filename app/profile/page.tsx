@@ -100,6 +100,8 @@ export default function ProfilePage() {
   const [likesLoading, setLikesLoading] = useState(false);
   const [bookmarksLoading, setBookmarksLoading] = useState(false);
   const [followsLoading, setFollowsLoading] = useState(false);
+  const [pendingAvatar, setPendingAvatar] = useState<string | null>(null);
+  const [avatarSaving, setAvatarSaving] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -206,15 +208,31 @@ export default function ProfilePage() {
     }
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      setAvatar(dataUrl);
-      authFetch("/api/profile", {
-        method: "PUT",
-        body: JSON.stringify({ avatar: dataUrl }),
-      }).catch(() => {});
+      setPendingAvatar(ev.target?.result as string);
     };
     reader.readAsDataURL(file);
     e.target.value = "";
+  }
+
+  async function handleAvatarSave() {
+    if (!pendingAvatar) return;
+    setAvatarSaving(true);
+    try {
+      await authFetch("/api/profile", {
+        method: "PUT",
+        body: JSON.stringify({ avatar: pendingAvatar }),
+      });
+      setAvatar(pendingAvatar);
+      setPendingAvatar(null);
+    } catch {
+      alert("保存失败，请重试");
+    } finally {
+      setAvatarSaving(false);
+    }
+  }
+
+  function handleAvatarCancel() {
+    setPendingAvatar(null);
   }
 
   const statsCount = { posts: myPosts.length, likes: likedPosts.length, follows: followings.length, bookmarks: bookmarks.length };
@@ -239,21 +257,40 @@ export default function ProfilePage() {
       <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
         <div className="flex items-start gap-5">
           <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-          <div className="relative flex-shrink-0">
-            {avatar ? (
-              <img src={avatar} alt="头像" className="w-20 h-20 rounded-full object-cover border border-gray-200" />
-            ) : (
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold">
-                {displayName[0]}
+          <div className="flex-shrink-0">
+            <div className="relative">
+              {(pendingAvatar ?? avatar) ? (
+                <img src={pendingAvatar ?? avatar} alt="头像" className={`w-20 h-20 rounded-full object-cover border-2 ${pendingAvatar ? "border-blue-400" : "border-gray-200"}`} />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold">
+                  {displayName[0]}
+                </div>
+              )}
+              <button
+                onClick={() => avatarInputRef.current?.click()}
+                title={t("changeAvatar")}
+                className="absolute bottom-0 right-0 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow hover:bg-gray-50 transition-colors"
+              >
+                📷
+              </button>
+            </div>
+            {pendingAvatar && (
+              <div className="flex gap-1 mt-2">
+                <button
+                  onClick={handleAvatarSave}
+                  disabled={avatarSaving}
+                  className="text-xs bg-blue-600 text-white px-2 py-1 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {avatarSaving ? "保存中…" : "保存头像"}
+                </button>
+                <button
+                  onClick={handleAvatarCancel}
+                  className="text-xs border border-gray-300 px-2 py-1 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  取消
+                </button>
               </div>
             )}
-            <button
-              onClick={() => avatarInputRef.current?.click()}
-              title={t("changeAvatar")}
-              className="absolute bottom-0 right-0 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow hover:bg-gray-50 transition-colors"
-            >
-              📷
-            </button>
           </div>
 
           <div className="flex-1">
