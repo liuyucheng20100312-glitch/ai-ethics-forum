@@ -85,7 +85,7 @@ function EmptyState({ icon, text }: { icon: string; text: string }) {
 }
 
 export default function ProfilePage() {
-  const { isGuest, user, authFetch } = useAuth();
+  const { isGuest, user, authFetch, refreshUser } = useAuth();
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabKey>("myPosts");
   const [editMode, setEditMode] = useState(false);
@@ -254,6 +254,7 @@ export default function ProfilePage() {
       setAvatar(data.avatar);
       setPendingAvatar(null);
       setPendingFile(null);
+      refreshUser(); // sync AuthContext so avatar persists on navigation
     } catch {
       alert("上传失败，请重试");
     } finally {
