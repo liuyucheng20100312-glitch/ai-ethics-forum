@@ -19,6 +19,10 @@ export async function POST(request: NextRequest) {
     if (!trimmedName) {
       return NextResponse.json({ error: "用户名不能为空" }, { status: 400 });
     }
+    const RESERVED = ["admin", "guest", "offline_admin", "administrator", "root", "system", "superuser"];
+    if (RESERVED.includes(trimmedName.toLowerCase())) {
+      return NextResponse.json({ error: "该用户名为系统保留用户名，不可使用" }, { status: 400 });
+    }
     if (displayWidth(trimmedName) > 20) {
       return NextResponse.json({ error: "用户名最多10个汉字或20个字母" }, { status: 400 });
     }

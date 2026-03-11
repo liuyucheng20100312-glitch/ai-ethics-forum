@@ -104,9 +104,13 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (isGuest || !user) return;
-    const p = loadProfile();
-    setBio(p.bio);
-    setAvatar(p.avatar);
+    authFetch("/api/profile")
+      .then(r => r.json())
+      .then(data => {
+        if (data.bio !== undefined) setBio(data.bio || "对AI伦理充满好奇的探索者");
+        if (data.avatar) setAvatar(data.avatar);
+      })
+      .catch(() => {});
     fetchMyPosts();
     fetchMyFollows();
     fetchMyBookmarks();
@@ -176,11 +180,16 @@ export default function ProfilePage() {
     setEditMode(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     const trimmedBio = draftBio.trim();
     setBio(trimmedBio);
-    saveProfile({ username: user?.username ?? "", bio: trimmedBio, avatar });
     setEditMode(false);
+    try {
+      await authFetch("/api/profile", {
+        method: "PUT",
+        body: JSON.stringify({ bio: trimmedBio }),
+      });
+    } catch {}
   }
 
   function handleCancel() {
@@ -199,7 +208,10 @@ export default function ProfilePage() {
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
       setAvatar(dataUrl);
-      saveProfile({ username: user?.username ?? "", bio, avatar: dataUrl });
+      authFetch("/api/profile", {
+        method: "PUT",
+        body: JSON.stringify({ avatar: dataUrl }),
+      }).catch(() => {});
     };
     reader.readAsDataURL(file);
     e.target.value = "";
