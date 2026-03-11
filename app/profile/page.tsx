@@ -101,6 +101,7 @@ export default function ProfilePage() {
   const [bookmarksLoading, setBookmarksLoading] = useState(false);
   const [followsLoading, setFollowsLoading] = useState(false);
   const [pendingAvatar, setPendingAvatar] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -201,38 +202,45 @@ export default function ProfilePage() {
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      alert(t("avatarSizeLimit"));
+    if (file.size > 5 * 1024 * 1024) {
+      alert("图片不能超过 5MB");
       e.target.value = "";
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setPendingAvatar(ev.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    setPendingFile(file);
+    setPendingAvatar(URL.createObjectURL(file));
     e.target.value = "";
   }
 
   async function handleAvatarSave() {
-    if (!pendingAvatar) return;
+    if (!pendingFile) return;
     setAvatarSaving(true);
     try {
-      await authFetch("/api/profile", {
-        method: "PUT",
-        body: JSON.stringify({ avatar: pendingAvatar }),
+      const formData = new FormData();
+      formData.append("avatar", pendingFile);
+      const res = await authFetch("/api/profile/avatar", {
+        method: "POST",
+        body: formData,
       });
-      setAvatar(pendingAvatar);
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error ?? "保存失败，请重试");
+        return;
+      }
+      setAvatar(data.avatar);
       setPendingAvatar(null);
+      setPendingFile(null);
     } catch {
-      alert("保存失败，请重试");
+      alert("上传失败，请重试");
     } finally {
       setAvatarSaving(false);
     }
   }
 
   function handleAvatarCancel() {
+    if (pendingAvatar) URL.revokeObjectURL(pendingAvatar);
     setPendingAvatar(null);
+    setPendingFile(null);
   }
 
   const statsCount = { posts: myPosts.length, likes: likedPosts.length, follows: followings.length, bookmarks: bookmarks.length };
