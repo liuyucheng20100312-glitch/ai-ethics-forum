@@ -18,7 +18,11 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
 
   const { db } = await connectToDatabase();
-  const doc = await db.collection("users").findOne({ _id: tryObjectId(user.userId) as never });
+  let doc = await db.collection("users").findOne({ _id: tryObjectId(user.userId) as never });
+  // Fallback: match by username if _id lookup fails
+  if (!doc) {
+    doc = await db.collection("users").findOne({ username: user.username } as never);
+  }
   if (!doc) return NextResponse.json({ error: "用户不存在" }, { status: 404 });
 
   return NextResponse.json({
@@ -62,6 +66,10 @@ export async function PUT(request: NextRequest) {
   if (body.bio !== undefined) update.bio = body.bio;
   if (body.avatar !== undefined) update.avatar = body.avatar;
 
-  await users.updateOne(userIdFilter, { $set: update });
+  let result = await users.updateOne(userIdFilter, { $set: update });
+  if (result.matchedCount === 0) {
+    // Fallback: match by username
+    await users.updateOne({ username: user.username } as never, { $set: update });
+  }
   return NextResponse.json({ ok: true });
 }

@@ -107,6 +107,8 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (isGuest || !user) return;
+    // Init from AuthContext immediately (avoids blank flicker)
+    if (user.avatar) setAvatar(user.avatar);
     authFetch("/api/profile")
       .then(r => r.json())
       .then(data => {

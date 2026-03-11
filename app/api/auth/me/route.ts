@@ -30,6 +30,10 @@ export async function GET(request: NextRequest) {
         doc = await db.collection("users").findOne({ _id: new ObjectId(user.userId) } as never);
       } catch { /* id not an ObjectId */ }
     }
+    // Fallback: match by username
+    if (!doc) {
+      doc = await db.collection("users").findOne({ username: user.username } as never);
+    }
     if (!doc) return NextResponse.json({ userId: user.userId, username: user.username, bio: "", avatar: "", verified: false });
     return NextResponse.json({
       userId: doc._id!.toString(),
