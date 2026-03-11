@@ -59,8 +59,17 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    const token = signToken({ userId: result.insertedId.toString(), username: trimmedName });
-    return NextResponse.json({ token, username: trimmedName }, { status: 201 });
+    const newUserId = result.insertedId.toString();
+    const token = signToken({ userId: newUserId, username: trimmedName });
+    return NextResponse.json({
+      token,
+      userId: newUserId,
+      username: trimmedName,
+      verified: true,
+      realName: student.realName,
+      classId: student.classId,
+      isAdmin: false,
+    }, { status: 201 });
   } catch (error) {
     console.error("注册失败:", error);
     if ((error as { code?: number }).code === 11000) {

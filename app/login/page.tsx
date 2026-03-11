@@ -59,6 +59,10 @@ export default function LoginPage() {
         username: data.username,
         bio: data.bio ?? "",
         avatar: data.avatar ?? "",
+        verified: data.verified ?? false,
+        realName: data.realName ?? "",
+        classId: data.classId ?? "",
+        isAdmin: data.isAdmin ?? false,
       });
       try {
         const next = [data.username, ...recentUsers.filter((u) => u !== data.username)].slice(0, 5);

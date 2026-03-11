@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     // Admin shortcut — works even when DB is unavailable
     if (username.trim() === OFFLINE_ADMIN_USERNAME && password === OFFLINE_ADMIN_PASSWORD) {
       const token = signToken({ userId: "offline_admin", username: OFFLINE_ADMIN_USERNAME });
-      return NextResponse.json({ token, username: OFFLINE_ADMIN_USERNAME, bio: "管理员", avatar: "" });
+      return NextResponse.json({ token, userId: "offline_admin", username: OFFLINE_ADMIN_USERNAME, bio: "论坛管理员", avatar: "", isAdmin: true, verified: false });
     }
 
     // connectToDatabase() never throws — falls back to local JSON DB automatically
@@ -50,9 +50,14 @@ export async function POST(request: NextRequest) {
     const token = signToken({ userId: String(user._id), username: user.username as string });
     return NextResponse.json({
       token,
+      userId: String(user._id),
       username: user.username,
       bio: user.bio ?? "",
       avatar: user.avatar ?? "",
+      verified: user.verified ?? false,
+      realName: user.realName ?? "",
+      classId: user.classId ?? "",
+      isAdmin: false,
     });
   } catch (error) {
     console.error("登录失败:", error);

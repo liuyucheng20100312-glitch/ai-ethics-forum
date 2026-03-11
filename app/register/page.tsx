@@ -65,8 +65,12 @@ export default function RegisterPage() {
       login(data.token, {
         userId: data.userId ?? "",
         username: data.username,
-        bio: "",
+        bio: "对AI伦理充满好奇的探索者",
         avatar: "",
+        verified: data.verified ?? false,
+        realName: data.realName ?? "",
+        classId: data.classId ?? "",
+        isAdmin: false,
       });
       router.push("/");
     } catch {
