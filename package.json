@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "vercel-build": "node scripts/sync-students-to-atlas.mjs && next build"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
