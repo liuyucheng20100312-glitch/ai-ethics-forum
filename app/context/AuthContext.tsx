@@ -7,6 +7,10 @@ export interface AuthUser {
   username: string;
   bio: string;
   avatar: string;
+  realName?: string;
+  classId?: string;
+  verified?: boolean;
+  isAdmin?: boolean;
 }
 
 interface AuthContextType {
@@ -41,7 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const authFetch = useCallback(
     (url: string, options: RequestInit = {}) => {
       const t = token ?? (typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null);
-      // If body is FormData, let the browser set Content-Type (includes multipart boundary)
       const isFormData = options.body instanceof FormData;
       return fetch(url, {
         ...options,
@@ -66,7 +69,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         setToken(t);
         setUser(data);
-        // Re-set cookie in case it was cleared (e.g. browser cache wipe)
         document.cookie = `ai_ethics_token=${t}; path=/; max-age=${30 * 24 * 3600}; SameSite=Lax`;
       } else {
         localStorage.removeItem(TOKEN_KEY);
@@ -85,7 +87,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = (t: string, u: AuthUser) => {
     localStorage.setItem(TOKEN_KEY, t);
-    // Also set a cookie so middleware can verify auth server-side
     document.cookie = `ai_ethics_token=${t}; path=/; max-age=${30 * 24 * 3600}; SameSite=Lax`;
     setToken(t);
     setUser(u);
