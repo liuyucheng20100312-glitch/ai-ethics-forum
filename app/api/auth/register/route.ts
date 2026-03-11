@@ -32,10 +32,19 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const users = db.collection("users");
+    const students = db.collection("students");
+
+    // 白名单检查：只有在学生名单中的用户名才能注册
+    const student = await students.findOne({ username: trimmedName }) as {
+      username: string; realName: string; classId: string;
+    } | null;
+    if (!student) {
+      return NextResponse.json({ error: "该用户名不在校园学生名单中，请使用学号格式用户名注册（如 G11abc）" }, { status: 403 });
+    }
 
     const existing = await users.findOne({ username: trimmedName });
     if (existing) {
-      return NextResponse.json({ error: "用户名已被占用" }, { status: 409 });
+      return NextResponse.json({ error: "该用户名已被注册" }, { status: 409 });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -44,6 +53,9 @@ export async function POST(request: NextRequest) {
       passwordHash,
       bio: "对AI伦理充满好奇的探索者",
       avatar: "",
+      realName: student.realName,
+      classId: student.classId,
+      verified: true,
       createdAt: new Date(),
     });
 
