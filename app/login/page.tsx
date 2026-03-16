@@ -68,7 +68,8 @@ export default function LoginPage() {
         const next = [data.username, ...recentUsers.filter((u) => u !== data.username)].slice(0, 5);
         localStorage.setItem(RECENT_USERS_KEY, JSON.stringify(next));
       } catch {}
-      router.push("/");
+      // 使用强制刷新跳转，确保页面状态正确更新
+      window.location.href = "/";
     } catch {
       setError("网络错误，请稍后再试");
     } finally {
@@ -88,7 +89,7 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "登录失败"); return; }
       login(data.token, { userId: "guest", username: "游客", bio: "游客账号，仅供浏览", avatar: "" });
-      router.push("/");
+      window.location.href = "/";
     } catch {
       setError("网络错误，请稍后再试");
     } finally {
