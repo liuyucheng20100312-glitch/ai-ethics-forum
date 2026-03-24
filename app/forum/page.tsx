@@ -98,6 +98,18 @@ export default function ForumPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <Link
+            href="/forum/survey"
+            className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 font-bold whitespace-nowrap"
+          >
+            前置问卷评测
+          </Link>
+          <Link
+            href="/forum/vote"
+            className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-bold whitespace-nowrap"
+          >
+            投票专栏
+          </Link>
           {!isGuest && (
             <Link
               href="/forum/new"
