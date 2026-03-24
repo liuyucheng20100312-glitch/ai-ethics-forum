@@ -19,7 +19,7 @@ type Topic = {
 };
 
 export default function VoteForumPage() {
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
   const [topics, setTopics] = useState<Topic[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -47,7 +47,21 @@ export default function VoteForumPage() {
 
   useEffect(() => {
     fetchTopics();
+    const draft = localStorage.getItem("voteDraft");
+    if (draft) {
+      try {
+        const { title, description, options } = JSON.parse(draft);
+        if (title) setNewTitle(title);
+        if (description) setNewDescription(description);
+        if (options && Array.isArray(options)) setNewOptions(options);
+      } catch (e) {}
+    }
   }, []);
+
+  const saveDraft = () => {
+    localStorage.setItem("voteDraft", JSON.stringify({ title: newTitle, description: newDescription, options: newOptions }));
+    alert("草稿保存成功！下次进入本页面将自动恢复。");
+  };
 
   const handleCreateTopic = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +72,7 @@ export default function VoteForumPage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/forum/vote", {
+      const res = await authFetch("/api/forum/vote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: newTitle, description: newDescription, options: validOptions }),
@@ -70,6 +84,7 @@ export default function VoteForumPage() {
         setNewTitle("");
         setNewDescription("");
         setNewOptions(["", ""]);
+        localStorage.removeItem("voteDraft");
         setShowCreateForm(false);
         fetchTopics();
       }
@@ -84,7 +99,7 @@ export default function VoteForumPage() {
     if (selectedOption === null) return alert("请先选择一个选项");
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/forum/vote/${topicId}/vote`, {
+      const res = await authFetch(`/api/forum/vote/${topicId}/vote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ optionIdx: selectedOption, opinion: opinionText }),
@@ -168,13 +183,22 @@ export default function VoteForumPage() {
               + 添加选项
             </button>
           </div>
-          <button 
-            type="submit" 
-            disabled={submitting}
-            className="w-full py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition disabled:opacity-50"
-          >
-            {submitting ? "提交中..." : "确认发布"}
-          </button>
+          <div className="flex gap-4">
+            <button 
+              type="button" 
+              onClick={saveDraft}
+              className="flex-1 py-3 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+            >
+              保存为草稿
+            </button>
+            <button 
+              type="submit" 
+              disabled={submitting}
+              className="flex-1 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+            >
+              {submitting ? "提交中..." : "确认发布"}
+            </button>
+          </div>
         </form>
       )}
 

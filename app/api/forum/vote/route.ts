@@ -3,7 +3,7 @@ import { getUserFromRequest } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 
 // 投票发起频率限制
-const STUDENT_LIMIT_DAYS = 7;
+const STUDENT_LIMIT_DAYS = 1;
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     if (!finalIsAdmin) {
       const last = await db.collection("vote_topics").findOne({ author: user.username }, { sort: { createdAt: -1 } });
       if (last && Date.now() - new Date(last.createdAt).getTime() < STUDENT_LIMIT_DAYS * 24 * 3600 * 1000) {
-        return NextResponse.json({ error: "学生每周仅可发起一次投票讨论" }, { status: 403 });
+        return NextResponse.json({ error: "每个账号每天仅可发起一次投票讨论" }, { status: 403 });
       }
     }
 
