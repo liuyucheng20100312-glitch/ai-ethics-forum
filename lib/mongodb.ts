@@ -6,19 +6,12 @@ const MONGODB_DB = process.env.MONGODB_DB || "ai-ethics-forum";
 
 let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
-// Once MongoDB is confirmed unreachable in this process, skip retrying
-let mongoUnreachable = false;
 
 export type AnyDb = Db | ReturnType<typeof getLocalDb>;
 
 export async function connectToDatabase(): Promise<{ client: MongoClient | null; db: AnyDb; isLocal: boolean }> {
   if (!MONGODB_URI) {
     console.warn("⚠️  MONGODB_URI 未设置，使用本地文件数据库");
-    return { client: null, db: getLocalDb(), isLocal: true };
-  }
-
-  // Fast path: known unreachable → local DB immediately
-  if (mongoUnreachable) {
     return { client: null, db: getLocalDb(), isLocal: true };
   }
 
@@ -53,9 +46,9 @@ export async function connectToDatabase(): Promise<{ client: MongoClient | null;
     console.log("✅ MongoDB 连接成功");
     return { client, db, isLocal: false };
   } catch (error) {
-    mongoUnreachable = true;
-    console.warn("⚠️  MongoDB 不可用，切换至本地文件数据库:", (error as Error).message.split("\n")[0]);
-    return { client: null, db: getLocalDb(), isLocal: true };
+    const message = (error as Error).message.split("\n")[0];
+    console.error("❌ MongoDB 连接失败(已禁用自动本地回退):", message);
+    throw new Error(`MongoDB unreachable: ${message}`);
   }
 }
 

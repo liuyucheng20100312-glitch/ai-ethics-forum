@@ -34,6 +34,28 @@ function newId() {
   return crypto.randomBytes(12).toString("hex");
 }
 
+function getByPath(obj: Record<string, unknown>, pathStr: string): unknown {
+  return pathStr.split(".").reduce<unknown>((acc, key) => {
+    if (acc && typeof acc === "object") return (acc as Record<string, unknown>)[key];
+    return undefined;
+  }, obj);
+}
+
+function setByPath(obj: Record<string, unknown>, pathStr: string, value: unknown) {
+  const parts = pathStr.split(".");
+  let cur: Record<string, unknown> = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i];
+    const next = cur[key];
+    if (!next || typeof next !== "object") {
+      const maybeIndex = Number(parts[i + 1]);
+      cur[key] = Number.isInteger(maybeIndex) ? [] : {};
+    }
+    cur = cur[key] as Record<string, unknown>;
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+
 /** Fake ObjectId wrapper – toString() returns the id string */
 export class LocalObjectId {
   id: string;
@@ -128,13 +150,16 @@ class LocalCollection {
     if (ops.$set) Object.assign(all[idx], ops.$set);
     if (ops.$inc) {
       for (const [k, v] of Object.entries(ops.$inc)) {
-        all[idx][k] = ((all[idx][k] as number) ?? 0) + (v as number);
+        const current = getByPath(all[idx], k);
+        setByPath(all[idx], k, ((current as number) ?? 0) + (v as number));
       }
     }
     if (ops.$push) {
       for (const [k, v] of Object.entries(ops.$push)) {
-        if (!Array.isArray(all[idx][k])) all[idx][k] = [];
-        (all[idx][k] as unknown[]).push(v);
+        const current = getByPath(all[idx], k);
+        const arr = Array.isArray(current) ? current : [];
+        arr.push(v);
+        setByPath(all[idx], k, arr);
       }
     }
     this.write(all);
