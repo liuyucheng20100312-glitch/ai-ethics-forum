@@ -14,14 +14,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ top
     const { db } = await connectToDatabase();
     
     let objectId;
+    let topic;
     try {
       objectId = new ObjectId(topicId);
+      topic = await db.collection("vote_topics").findOne({ _id: objectId });
     } catch {
-      return NextResponse.json({ error: "无效的ID" }, { status: 400 });
+      // In case the ID is stored as string
+      topic = null;
     }
 
-    const topic = await db.collection("vote_topics").findOne({ _id: objectId });
-    if (!topic) return NextResponse.json({ error: "主题不存在" }, { status: 404 });
+    if (!topic) {
+       topic = await db.collection("vote_topics").findOne({ _id: topicId as any });
+    }
+
+    if (!topic) return NextResponse.json({ error: "主题不存在: " + topicId }, { status: 404 });
 
     // 检查是否已经投过票
     let hasVoted = false;
@@ -44,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ top
       },
     };
     
-    await db.collection("vote_topics").updateOne({ _id: objectId }, update as any);
+    await db.collection("vote_topics").updateOne({ _id: (topic as any)._id }, update as any);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
