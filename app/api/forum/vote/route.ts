@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 
+export const dynamic = 'force-dynamic';
+
 // 投票发起频率限制
 const STUDENT_LIMIT_DAYS = 1;
 

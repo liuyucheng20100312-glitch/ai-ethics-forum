@@ -35,7 +35,9 @@ export default function VoteForumPage() {
 
   const fetchTopics = async () => {
     try {
-      const res = await fetch("/api/forum/vote");
+      const res = await fetch("/api/forum/vote?t=" + new Date().getTime(), {
+        cache: 'no-store'
+      });
       const data = await res.json();
       if (Array.isArray(data)) {
         setTopics(data);

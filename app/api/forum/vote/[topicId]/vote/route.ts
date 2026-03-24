@@ -43,11 +43,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ top
     }
 
     // 更新投票与观点
+    const pushObj: Record<string, any> = {
+      [`options.${optionIdx}.votes`]: user.username,
+    };
+    if (opinion && opinion.trim() !== "") {
+      pushObj[`options.${optionIdx}.opinions`] = { user: user.username, text: opinion, createdAt: new Date() };
+    }
+
     const update = {
-      $push: {
-        [`options.${optionIdx}.votes`]: user.username,
-        [`options.${optionIdx}.opinions`]: opinion ? { user: user.username, text: opinion, createdAt: new Date() } : null,
-      },
+      $push: pushObj,
     };
     
     await db.collection("vote_topics").updateOne({ _id: (topic as any)._id }, update as any);
