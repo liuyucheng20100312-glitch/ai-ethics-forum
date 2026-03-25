@@ -3,12 +3,89 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 
-const categories = ["全部", "AI对话", "AI绘画", "AI音乐", "AI写作", "AI漫剧", "AI视频", "AI编程"];
+const categories = ["全部", "AI课程", "AI对话", "AI绘画", "AI音乐", "AI写作", "AI漫剧", "AI视频", "AI编程"];
 
 // 收藏量数据每月更新，国产优先排列
 // 最近更新：2026年3月
 const tools = [
-  // ── 国产工具 ──────────────────────────────────────────────
+  // ── 免费AI课程 ────────────────────────────────────────────
+  {
+    name: "吴恩达 AI For Everyone",
+    category: "AI课程",
+    description: "DeepLearning.AI出品，全球最受欢迎的AI科普课程，无需编程基础，讲解AI如何改变各行各业与伦理挑战，有中文字幕。",
+    url: "https://www.coursera.org/learn/ai-for-everyone",
+    emoji: "🎓",
+    domestic: false,
+    bookmarkCount: 500,
+    likes: 0,
+    collected: false,
+  },
+  {
+    name: "吴恩达 AI Ethics（AI伦理专项课）",
+    category: "AI课程",
+    description: "专注AI伦理议题，涵盖公平性、偏见、透明度与问责制，适合直接关联本论坛主题的深度学习，免费旁听。",
+    url: "https://www.coursera.org/learn/ethics-in-ai",
+    emoji: "⚖️",
+    domestic: false,
+    bookmarkCount: 320,
+    likes: 0,
+    collected: false,
+  },
+  {
+    name: "微软 AI-900 备考课",
+    category: "AI课程",
+    description: "微软官方免费AI基础课程，涵盖机器学习、计算机视觉、自然语言处理等核心概念，完成可获微软证书。",
+    url: "https://learn.microsoft.com/zh-cn/training/paths/get-started-with-artificial-intelligence-on-azure/",
+    emoji: "🪟",
+    domestic: false,
+    bookmarkCount: 410,
+    likes: 0,
+    collected: false,
+  },
+  {
+    name: "谷歌 Machine Learning Crash Course",
+    category: "AI课程",
+    description: "谷歌官方免费机器学习速成课，有中文版，包含大量交互练习，适合有一定数学基础的同学入门。",
+    url: "https://developers.google.com/machine-learning/crash-course?hl=zh-cn",
+    emoji: "🔵",
+    domestic: false,
+    bookmarkCount: 380,
+    likes: 0,
+    collected: false,
+  },
+  {
+    name: "慕课网 AI伦理与治理",
+    category: "AI课程",
+    description: "国内高校联合开设的AI伦理公开课，讲解算法公正、数据权利与AI治理框架，全中文，免费学习。",
+    url: "https://www.icourse163.org",
+    emoji: "🏫",
+    domestic: true,
+    bookmarkCount: 290,
+    likes: 0,
+    collected: false,
+  },
+  {
+    name: "哈佛 CS50's AI with Python",
+    category: "AI课程",
+    description: "哈佛大学开放课程，用Python讲解搜索、知识表示、机器学习等AI核心算法，全球最受欢迎的编程类AI课之一，免费。",
+    url: "https://cs50.harvard.edu/ai/",
+    emoji: "🏛️",
+    domestic: false,
+    bookmarkCount: 460,
+    likes: 0,
+    collected: false,
+  },
+  {
+    name: "Fast.ai 深度学习实战",
+    category: "AI课程",
+    description: "由顶级AI研究者主讲，自顶向下教学法，直接上手实战项目，完全免费且持续更新，适合有编程基础的学习者。",
+    url: "https://www.fast.ai",
+    emoji: "⚡",
+    domestic: false,
+    bookmarkCount: 340,
+    likes: 0,
+    collected: false,
+  },
   {
     name: "DeepSeek",
     category: "AI对话",

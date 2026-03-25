@@ -11,7 +11,7 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const URI =
   process.env.MONGODB_URI ||
-  "mongodb+srv://admin:kslmFVQVylH2VXgD@cluster0.qqqwmn9.mongodb.net/?retryWrites=true&w=majority";
+  "mongodb://admin:kslmFVQVylH2VXgD@119.91.221.122:8081/?authSource=admin";
 const DB_NAME = process.env.MONGODB_DB || "ai-ethics-forum";
 
 const studentsFile = path.join(__dirname, "../.localdb/students.json");

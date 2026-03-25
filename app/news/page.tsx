@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 
-const categories = ["全部", "政策法规", "学术研究", "行业动态", "校园新闻"];
+const categories = ["全部", "政策法规", "国际标准", "学术研究", "行业动态", "校园新闻"];
 
 const news = [
   // ── 2026年3月 ──────────────────────────────────────────────
@@ -96,7 +96,81 @@ const news = [
     source: "MIT Media Lab",
     summary: "针对50个主流AI应用的研究发现，在招聘、信贷等高风险场景中性别偏见问题依然突出。",
   },
+  // ── 政策文件与国际标准 ──────────────────────────────────────
+  {
+    id: "china-new-gen-ai-gov-2017",
+    title: "中国《新一代人工智能发展规划》",
+    category: "国际标准",
+    date: "2017-07-08",
+    source: "国务院",
+    summary: "中国首个国家级AI战略规划，确立2030年成为世界主要AI创新中心的目标，强调将伦理与法规纳入AI发展全流程。",
+    url: "https://www.gov.cn/zhengce/content/2017-07/20/content_5211996.htm",
+  },
+  {
+    id: "china-ai-ethics-principles-2021",
+    title: "中国《新一代人工智能伦理规范》",
+    category: "国际标准",
+    date: "2021-09-26",
+    source: "科技部",
+    summary: "提出人类利益优先、公平公正、隐私保护、透明可解释等六大基本伦理原则，是国内首份系统性AI伦理规范文件。",
+    url: "https://www.most.gov.cn/kjbgz/202109/t20210926_177063.html",
+  },
+  {
+    id: "china-genai-reg-2023",
+    title: "中国《生成式人工智能服务管理暂行办法》",
+    category: "国际标准",
+    date: "2023-07-13",
+    source: "网信办 / 科技部",
+    summary: "全球首部专门规范生成式AI的行政法规，要求服务提供者对AI生成内容进行标识，并承担内容安全审核责任。",
+    url: "https://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm",
+  },
+  {
+    id: "eu-ai-act-full-2024",
+    title: "欧盟《人工智能法案》（AI Act）",
+    category: "国际标准",
+    date: "2024-08-01",
+    source: "欧洲议会",
+    summary: "全球首部全面性AI监管法律，按风险等级（不可接受/高风险/有限风险/最小风险）对AI系统实施差异化监管，高风险应用需强制符合性评估。",
+    url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689",
+  },
+  {
+    id: "unesco-ai-ethics-rec-2021",
+    title: "UNESCO《人工智能伦理问题建议书》",
+    category: "国际标准",
+    date: "2021-11-23",
+    source: "联合国教科文组织",
+    summary: "193个成员国一致通过，涵盖隐私权、包容性、环境可持续性等11项核心价值观，是目前全球范围最广的AI伦理政府间协议。",
+    url: "https://unesdoc.unesco.org/ark:/48223/pf0000381137",
+  },
+  {
+    id: "oecd-ai-principles-2019",
+    title: "OECD《人工智能原则》",
+    category: "国际标准",
+    date: "2019-05-22",
+    source: "经济合作与发展组织",
+    summary: "首个政府间AI伦理框架，提出包容性增长、以人为本、透明度、安全性、问责制五大原则，已被G20采纳为参考基准。",
+    url: "https://oecd.ai/en/ai-principles",
+  },
+  {
+    id: "iso-iec-42001-2023",
+    title: "ISO/IEC 42001：人工智能管理体系国际标准",
+    category: "国际标准",
+    date: "2023-12-18",
+    source: "ISO / IEC",
+    summary: "全球首个AI管理体系国际标准，为各类组织建立、实施和持续改进AI管理体系提供指南，类似AI领域的ISO 9001。",
+    url: "https://www.iso.org/standard/81230.html",
+  },
+  {
+    id: "ieee-ethically-aligned-design",
+    title: "IEEE《有道德对齐的设计》（EAD）",
+    category: "国际标准",
+    date: "2019-03-01",
+    source: "IEEE",
+    summary: "IEEE发布的AI伦理设计全球倡议，提出自主系统在人权、福祉、问责制等方面的技术规范建议，被广泛引用于工程实践。",
+    url: "https://standards.ieee.org/wp-content/uploads/import/documents/other/ead_v2.pdf",
+  },
 ];
+
 
 export default function NewsPage() {
   const { isGuest, authFetch } = useAuth();
@@ -171,6 +245,9 @@ export default function NewsPage() {
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-1">{item.title}</h3>
                 <p className="text-sm text-gray-500">{item.summary}</p>
+                {(item as any).url && (
+                  <a href={(item as any).url} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs text-blue-600 hover:underline">📄 查看原文 →</a>
+                )}
               </div>
               <div className="flex flex-col items-end gap-2 shrink-0">
                 <span className="text-xs text-gray-400">{item.date}</span>
