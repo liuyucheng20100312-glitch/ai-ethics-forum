@@ -5,12 +5,19 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { useLanguage } from "@/app/context/LanguageContext";
 
+// 检查是否是管理员
+function isAdmin(userId: string | undefined): boolean {
+  return userId === "offline_admin";
+}
+
 const navItemsZh = [
   { label: "首页",     labelEn: "Home",     href: "/" },
   { label: "播客专区", labelEn: "Podcast",  href: "/podcast" },
   { label: "新闻专区", labelEn: "News",     href: "/news" },
   { label: "AI工具推荐",labelEn:"Tools",    href: "/tools" },
   { label: "发帖专区", labelEn: "Forum",    href: "/forum" },
+  { label: "投票专区", labelEn: "Votes",    href: "/votes" },
+  { label: "问卷调查", labelEn: "Surveys",  href: "/surveys" },
   { label: "创意专区", labelEn: "Creative", href: "/creative" },
   { label: "个人中心", labelEn: "Profile",  href: "/profile" },
   { label: "设置",     labelEn: "Settings", href: "/settings" },
@@ -20,6 +27,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const { user } = useAuth();
   const { language } = useLanguage();
+  const isUserAdmin = isAdmin(user?.userId);
 
   return (
     <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20 shadow-sm transition-colors">
@@ -50,6 +58,19 @@ export default function Navbar() {
           })}
         </nav>
         <div className="shrink-0 ml-4 flex items-center gap-2">
+          {/* 管理后台入口 */}
+          {isUserAdmin && (
+            <Link
+              href="/admin"
+              className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                pathname.startsWith("/admin")
+                  ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+                  : "text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+              }`}
+            >
+              🛡️ {language === "zh" ? "管理" : "Admin"}
+            </Link>
+          )}
           {user ? (
             <Link
               href="/profile"

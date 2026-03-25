@@ -27,6 +27,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.27",
+    "mammoth": "^1.12.0",
     "postcss": "^8",
     "tailwindcss": "^4",
     "typescript": "^5"
