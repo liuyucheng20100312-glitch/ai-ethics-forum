@@ -7,7 +7,10 @@
       "Bash(MONGODB_URI=\"mongodb://admin:kslmFVQVylH2VXgD@119.91.221.122:8081/?authSource=admin\" node:*)",
       "WebSearch",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "WebFetch(domain:www.253.com)"
     ]
   }
 }

@@ -30,7 +30,7 @@ export async function POST(
     try {
       survey = await db.collection("surveys").findOne({ _id: new ObjectId(id) });
     } catch {
-      survey = await db.collection("surveys").findOne({ _id: id });
+      survey = await db.collection("surveys").findOne({ _id: id as never });
     }
 
     if (!survey) {
@@ -92,7 +92,7 @@ export async function POST(
       );
     } catch {
       await db.collection("surveys").updateOne(
-        { _id: id },
+        { _id: id as never },
         { $inc: { responseCount: 1 } }
       );
     }

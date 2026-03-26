@@ -5,10 +5,11 @@ const PUBLIC_PATHS = ["/login", "/register"];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Always allow: static assets, Next internals, auth API
+  // Always allow: static assets, Next internals, auth API, sms API
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/sms") ||
     pathname.startsWith("/api/posts") ||
     pathname.startsWith("/api/replies") ||
     pathname.startsWith("/api/creative") ||

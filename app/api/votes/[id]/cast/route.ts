@@ -32,7 +32,7 @@ export async function POST(
     try {
       vote = await db.collection("votes").findOne({ _id: new ObjectId(id) });
     } catch {
-      vote = await db.collection("votes").findOne({ _id: id });
+      vote = await db.collection("votes").findOne({ _id: id as never });
     }
 
     if (!vote) {
@@ -77,7 +77,7 @@ export async function POST(
       );
     } catch {
       await db.collection("votes").updateOne(
-        { _id: id },
+        { _id: id as never },
         {
           $inc: { [updateField]: 1, totalVoters: 1 },
           $set: { updatedAt: new Date() }

@@ -21,7 +21,7 @@ export async function GET(
     try {
       survey = await db.collection("surveys").findOne({ _id: new ObjectId(id) });
     } catch {
-      survey = await db.collection("surveys").findOne({ _id: id });
+      survey = await db.collection("surveys").findOne({ _id: id as never });
     }
 
     if (!survey) {
@@ -94,7 +94,7 @@ export async function PUT(
     try {
       survey = await db.collection("surveys").findOne({ _id: new ObjectId(id) });
     } catch {
-      survey = await db.collection("surveys").findOne({ _id: id });
+      survey = await db.collection("surveys").findOne({ _id: id as never });
     }
 
     if (!survey) {
@@ -138,7 +138,7 @@ export async function PUT(
       );
     } catch {
       await db.collection("surveys").updateOne(
-        { _id: id },
+        { _id: id as never },
         { $set: updateData }
       );
     }
@@ -167,7 +167,7 @@ export async function DELETE(
     try {
       await db.collection("surveys").deleteOne({ _id: new ObjectId(id) });
     } catch {
-      await db.collection("surveys").deleteOne({ _id: id });
+      await db.collection("surveys").deleteOne({ _id: id as never });
     }
 
     // 同时删除相关的回答

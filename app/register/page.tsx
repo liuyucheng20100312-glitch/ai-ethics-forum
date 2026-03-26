@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../context/AuthContext";
@@ -36,32 +36,83 @@ export default function RegisterPage() {
   const router = useRouter();
   const { login } = useAuth();
   const { t, language, toggleLanguage } = useLanguage();
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [grade, setGrade] = useState("");
+  const [classId, setClassId] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
   const strength = pwdStrength(password);
+
+  // 倒计时效果
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
+  const handleSendCode = async () => {
+    setError("");
+
+    // 验证手机号
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(phone)) {
+      setError(language === "zh" ? "请输入正确的手机号" : "Please enter a valid phone number");
+      return;
+    }
+
+    setSendingCode(true);
+    try {
+      const res = await fetch("/api/sms/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, scene: "register" }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || (language === "zh" ? "发送失败" : "Failed to send"));
+        return;
+      }
+
+      setCountdown(60); // 开始60秒倒计时
+    } catch {
+      setError(language === "zh" ? "网络错误" : "Network error");
+    } finally {
+      setSendingCode(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
     if (password !== confirm) {
       setError(language === "zh" ? "两次密码不一致" : "Passwords do not match");
       return;
     }
+
     setLoading(true);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ phone, code, username, password, grade, classId }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? (language === "zh" ? "注册失败" : "Registration failed")); return; }
+      if (!res.ok) {
+        setError(data.error ?? (language === "zh" ? "注册失败" : "Registration failed"));
+        return;
+      }
       login(data.token, {
         userId: data.userId ?? "",
         username: data.username,
@@ -105,18 +156,64 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* 手机号 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t("username")}</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {language === "zh" ? "手机号" : "Phone"}
+              </label>
               <input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder={language === "zh" ? "最多10个汉字或20个字母" : "Max 20 characters"}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder={language === "zh" ? "请输入手机号" : "Enter phone number"}
                 className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
                 autoFocus
               />
             </div>
 
+            {/* 验证码 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {language === "zh" ? "验证码" : "Verification Code"}
+              </label>
+              <div className="flex gap-2">
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder={language === "zh" ? "请输入验证码" : "Enter code"}
+                  className="flex-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                  maxLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={handleSendCode}
+                  disabled={countdown > 0 || sendingCode}
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {countdown > 0
+                    ? `${countdown}s`
+                    : sendingCode
+                    ? (language === "zh" ? "发送中..." : "Sending...")
+                    : (language === "zh" ? "发送验证码" : "Send Code")}
+                </button>
+              </div>
+            </div>
+
+            {/* 用户名（选填） */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {language === "zh" ? "用户名（选填）" : "Username (optional)"}
+              </label>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder={language === "zh" ? "最多10个汉字或20个字母" : "Max 20 characters"}
+                className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* 密码 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t("password")}</label>
               <div className="relative">
@@ -148,6 +245,7 @@ export default function RegisterPage() {
               )}
             </div>
 
+            {/* 确认密码 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t("confirmPassword")}</label>
               <div className="relative">
@@ -171,6 +269,32 @@ export default function RegisterPage() {
               {confirm && confirm !== password && (
                 <p className="text-xs text-red-500 mt-1">{language === "zh" ? "密码不一致" : "Passwords don't match"}</p>
               )}
+            </div>
+
+            {/* 年级班级（选填） */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {language === "zh" ? "年级（选填）" : "Grade (optional)"}
+                </label>
+                <input
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                  placeholder={language === "zh" ? "如：高一" : "e.g. G10"}
+                  className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {language === "zh" ? "班级（选填）" : "Class (optional)"}
+                </label>
+                <input
+                  value={classId}
+                  onChange={(e) => setClassId(e.target.value)}
+                  placeholder={language === "zh" ? "如：1班" : "e.g. Class 1"}
+                  className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}

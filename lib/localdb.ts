@@ -107,11 +107,31 @@ function applySort(docs: Record<string, unknown>[], sort: Record<string, 1 | -1>
 // ── Cursor ────────────────────────────────────────────────────────────────────
 class LocalCursor {
   private docs: Record<string, unknown>[];
+  private projectFields: Record<string, 0 | 1> | null = null;
   constructor(docs: Record<string, unknown>[]) { this.docs = docs; }
   sort(s: Record<string, 1 | -1>) { this.docs = applySort(this.docs, s); return this; }
   limit(n: number) { this.docs = this.docs.slice(0, n); return this; }
   skip(n: number) { this.docs = this.docs.slice(n); return this; }
-  async toArray() { return this.docs; }
+  project(fields: Record<string, 0 | 1>) {
+    this.projectFields = fields;
+    return this;
+  }
+  async toArray() {
+    if (this.projectFields) {
+      return this.docs.map(doc => {
+        const result: Record<string, unknown> = {};
+        for (const [key, include] of Object.entries(this.projectFields!)) {
+          if (include === 1 && key in doc) {
+            result[key] = doc[key];
+          }
+        }
+        // 总是包含 _id
+        if (doc._id !== undefined) result._id = doc._id;
+        return result;
+      });
+    }
+    return this.docs;
+  }
 }
 
 // ── Collection ────────────────────────────────────────────────────────────────

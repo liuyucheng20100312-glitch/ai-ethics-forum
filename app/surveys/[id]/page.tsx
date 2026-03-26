@@ -63,6 +63,7 @@ export default function SurveyDetailPage() {
   const [answers, setAnswers] = useState<Record<number, string | string[]>>({});
   const [additionalComment, setAdditionalComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [showStats, setShowStats] = useState(false);
@@ -145,6 +146,7 @@ export default function SurveyDetailPage() {
     }
 
     setSubmitting(true);
+    setAnalyzing(true); // 开始显示AI分析中
     try {
       const formattedAnswers = survey.questions.map((q) => ({
         questionIndex: q.index,
@@ -170,11 +172,14 @@ export default function SurveyDetailPage() {
       if (data.aiAnalysis) {
         setAiAnalysis(data.aiAnalysis);
       }
+      // 重新获取问卷数据以更新统计
+      await fetchSurvey();
       alert(t("surveySubmitSuccess"));
     } catch (error: any) {
       alert(error.message || t("networkError"));
     } finally {
       setSubmitting(false);
+      setAnalyzing(false);
     }
   };
 
@@ -221,6 +226,21 @@ export default function SurveyDetailPage() {
 
   return (
     <div>
+      {/* AI Analyzing Modal */}
+      {analyzing && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 max-w-md w-full mx-4 text-center shadow-2xl">
+            <div className="animate-spin w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-6"></div>
+            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">
+              🤖 {t("aiAnalysisLoading")}
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400">
+              {language === "zh" ? "请稍候，AI正在分析您的回答..." : "Please wait while AI analyzes your responses..."}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Back Button */}
       <Link href="/surveys" className="text-blue-600 hover:underline mb-6 inline-block">
         {t("backToSurveys")}

@@ -21,7 +21,7 @@ export async function GET(
     try {
       vote = await db.collection("votes").findOne({ _id: new ObjectId(id) });
     } catch {
-      vote = await db.collection("votes").findOne({ _id: id });
+      vote = await db.collection("votes").findOne({ _id: id as never });
     }
 
     if (!vote) {
@@ -64,7 +64,7 @@ export async function PUT(
     try {
       vote = await db.collection("votes").findOne({ _id: new ObjectId(id) });
     } catch {
-      vote = await db.collection("votes").findOne({ _id: id });
+      vote = await db.collection("votes").findOne({ _id: id as never });
     }
 
     if (!vote) {
@@ -107,7 +107,7 @@ export async function PUT(
       );
     } catch {
       await db.collection("votes").updateOne(
-        { _id: id },
+        { _id: id as never },
         { $set: updateData }
       );
     }
@@ -140,7 +140,7 @@ export async function DELETE(
     try {
       vote = await db.collection("votes").findOne({ _id: new ObjectId(id) });
     } catch {
-      vote = await db.collection("votes").findOne({ _id: id });
+      vote = await db.collection("votes").findOne({ _id: id as never });
     }
 
     if (!vote) {
@@ -158,7 +158,7 @@ export async function DELETE(
     try {
       await db.collection("votes").deleteOne({ _id: new ObjectId(id) });
     } catch {
-      await db.collection("votes").deleteOne({ _id: id });
+      await db.collection("votes").deleteOne({ _id: id as never });
     }
 
     // 同时删除相关的投票记录和评论

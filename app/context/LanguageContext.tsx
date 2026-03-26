@@ -287,7 +287,6 @@ const translations = {
     addOption: "添加选项",
     removeOption: "删除选项",
     // Admin & Moderation
-    adminPanel: "管理后台",
     sensitiveWords: "敏感词管理",
     moderation: "内容审核",
     pendingReview: "待审核",
@@ -325,6 +324,22 @@ const translations = {
     reviewAction: "审核操作",
     deleteContent: "删除内容",
     confirmDelete: "确定要删除这条内容吗？此操作不可恢复。",
+    // SMS Auth
+    phone: "手机号",
+    verificationCode: "验证码",
+    sendCode: "发送验证码",
+    sendingCode: "发送中...",
+    codeSent: "验证码已发送",
+    passwordLogin: "密码登录",
+    smsLogin: "验证码登录",
+    usernameOrPhone: "用户名/手机号",
+    enterPhone: "请输入手机号",
+    enterCode: "请输入验证码",
+    grade: "年级",
+    classId: "班级",
+    gradeOptional: "年级（选填）",
+    classIdOptional: "班级（选填）",
+    usernameOptional: "用户名（选填）",
   },
   en: {
     // Auth
@@ -608,7 +623,6 @@ const translations = {
     addOption: "Add Option",
     removeOption: "Remove Option",
     // Admin & Moderation
-    adminPanel: "Admin Panel",
     sensitiveWords: "Sensitive Words",
     moderation: "Moderation",
     pendingReview: "Pending",
@@ -646,6 +660,22 @@ const translations = {
     reviewAction: "Review Action",
     deleteContent: "Delete Content",
     confirmDelete: "Are you sure you want to delete? This cannot be undone.",
+    // SMS Auth
+    phone: "Phone",
+    verificationCode: "Verification Code",
+    sendCode: "Send Code",
+    sendingCode: "Sending...",
+    codeSent: "Code sent",
+    passwordLogin: "Password",
+    smsLogin: "SMS Code",
+    usernameOrPhone: "Username/Phone",
+    enterPhone: "Enter phone number",
+    enterCode: "Enter code",
+    grade: "Grade",
+    classId: "Class",
+    gradeOptional: "Grade (optional)",
+    classIdOptional: "Class (optional)",
+    usernameOptional: "Username (optional)",
   },
 } as const;
 

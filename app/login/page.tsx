@@ -21,15 +21,27 @@ function EyeIcon({ open }: { open: boolean }) {
 
 const RECENT_USERS_KEY = "ai_ethics_recent_users";
 
+type LoginType = "password" | "sms";
+
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const { t, language, toggleLanguage } = useLanguage();
+  const [loginType, setLoginType] = useState<LoginType>("password");
+
+  // 密码登录状态
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
+
+  // 验证码登录状态
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const [recentUsers, setRecentUsers] = useState<string[]>([]);
 
   useEffect(() => {
@@ -42,7 +54,47 @@ export default function LoginPage() {
     }
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 倒计时效果
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
+  const handleSendCode = async () => {
+    setError("");
+
+    // 验证手机号
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(phone)) {
+      setError(language === "zh" ? "请输入正确的手机号" : "Please enter a valid phone number");
+      return;
+    }
+
+    setSendingCode(true);
+    try {
+      const res = await fetch("/api/sms/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, scene: "login" }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || (language === "zh" ? "发送失败" : "Failed to send"));
+        return;
+      }
+
+      setCountdown(60);
+    } catch {
+      setError(language === "zh" ? "网络错误" : "Network error");
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
@@ -50,7 +102,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, loginType: "password" }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "登录失败"); return; }
@@ -68,7 +120,36 @@ export default function LoginPage() {
         const next = [data.username, ...recentUsers.filter((u) => u !== data.username)].slice(0, 5);
         localStorage.setItem(RECENT_USERS_KEY, JSON.stringify(next));
       } catch {}
-      // 使用强制刷新跳转，确保页面状态正确更新
+      window.location.href = "/";
+    } catch {
+      setError("网络错误，请稍后再试");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSmsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, code, loginType: "sms" }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "登录失败"); return; }
+      login(data.token, {
+        userId: data.userId ?? "",
+        username: data.username,
+        bio: data.bio ?? "",
+        avatar: data.avatar ?? "",
+        verified: data.verified ?? false,
+        realName: data.realName ?? "",
+        classId: data.classId ?? "",
+        isAdmin: data.isAdmin ?? false,
+      });
       window.location.href = "/";
     } catch {
       setError("网络错误，请稍后再试");
@@ -84,7 +165,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: "guest", password: "" }),
+        body: JSON.stringify({ username: "guest", password: "", loginType: "password" }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "登录失败"); return; }
@@ -121,59 +202,140 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t("username")}</label>
-              <input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder={t("enterUsername")}
-                className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-                autoFocus
-              />
-              {recentUsers.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <span className="text-xs text-gray-400 self-center">{t("recentLogins")}:</span>
-                  {recentUsers.map((name) => (
-                    <button
-                      key={name}
-                      type="button"
-                      onClick={() => setUsername(name)}
-                      className="text-xs px-2 py-1 rounded-full border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t("password")}</label>
-              <div className="relative">
-                <input
-                  type={showPwd ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={t("enterPassword")}
-                  className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-                <button type="button" onClick={() => setShowPwd(!showPwd)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                  <EyeIcon open={showPwd} />
-                </button>
-              </div>
-            </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+          {/* 登录方式切换 */}
+          <div className="flex mb-4 border-b border-gray-200 dark:border-gray-700">
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2 rounded-lg text-sm transition-colors"
+              type="button"
+              onClick={() => setLoginType("password")}
+              className={`flex-1 pb-2 text-sm font-medium transition-colors ${
+                loginType === "password"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-500 dark:text-gray-400"
+              }`}
             >
-              {loading ? t("loggingIn") : t("login")}
+              {language === "zh" ? "密码登录" : "Password"}
             </button>
-          </form>
+            <button
+              type="button"
+              onClick={() => setLoginType("sms")}
+              className={`flex-1 pb-2 text-sm font-medium transition-colors ${
+                loginType === "sms"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              {language === "zh" ? "验证码登录" : "SMS Code"}
+            </button>
+          </div>
+
+          {loginType === "password" ? (
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {language === "zh" ? "用户名/手机号" : "Username/Phone"}
+                </label>
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder={language === "zh" ? "输入用户名或手机号" : "Enter username or phone"}
+                  className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                  autoFocus
+                />
+                {recentUsers.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="text-xs text-gray-400 self-center">{t("recentLogins")}:</span>
+                    {recentUsers.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => setUsername(name)}
+                        className="text-xs px-2 py-1 rounded-full border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t("password")}</label>
+                <div className="relative">
+                  <input
+                    type={showPwd ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={t("enterPassword")}
+                    className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                  <button type="button" onClick={() => setShowPwd(!showPwd)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                    <EyeIcon open={showPwd} />
+                  </button>
+                </div>
+              </div>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2 rounded-lg text-sm transition-colors"
+              >
+                {loading ? t("loggingIn") : t("login")}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSmsSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {language === "zh" ? "手机号" : "Phone"}
+                </label>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder={language === "zh" ? "请输入手机号" : "Enter phone number"}
+                  className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {language === "zh" ? "验证码" : "Verification Code"}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder={language === "zh" ? "请输入验证码" : "Enter code"}
+                    className="flex-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                    maxLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendCode}
+                    disabled={countdown > 0 || sendingCode}
+                    className="px-4 py-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {countdown > 0
+                      ? `${countdown}s`
+                      : sendingCode
+                      ? (language === "zh" ? "发送中..." : "Sending...")
+                      : (language === "zh" ? "发送验证码" : "Send Code")}
+                  </button>
+                </div>
+              </div>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2 rounded-lg text-sm transition-colors"
+              >
+                {loading ? t("loggingIn") : t("login")}
+              </button>
+            </form>
+          )}
 
           <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-5">
             {t("noAccount")}

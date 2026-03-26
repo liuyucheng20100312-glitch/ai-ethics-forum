@@ -27,7 +27,7 @@ export async function GET(
     try {
       survey = await db.collection("surveys").findOne({ _id: new ObjectId(id) });
     } catch {
-      survey = await db.collection("surveys").findOne({ _id: id });
+      survey = await db.collection("surveys").findOne({ _id: id as never });
     }
 
     if (!survey) {

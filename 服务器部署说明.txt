@@ -1,0 +1,16 @@
+# 先清理可能的缓存
+npm cache clean --force
+
+# 重新安装所有依赖
+npm install
+
+npm run build
+
+# 1. 停止并删除旧进程
+pm2 delete ai-ethics-forum
+
+# 2. 用你的配置重新启动
+pm2 start ecosystem.config.js
+
+# 3. 保存配置
+pm2 save
