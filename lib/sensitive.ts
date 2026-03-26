@@ -117,7 +117,7 @@ export type ModerationStatus = "approved" | "pending" | "rejected";
 /**
  * 内容类型
  */
-export type ContentType = "post" | "reply" | "vote_comment" | "survey_response" | "vote";
+export type ContentType = "post" | "reply" | "vote_comment" | "survey_response" | "vote" | "video" | "video_comment";
 
 /**
  * 创建审核记录

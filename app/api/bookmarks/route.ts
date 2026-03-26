@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { itemId, itemType, title, subtitle, url, emoji } = body as {
     itemId: string;
-    itemType: "news" | "podcast" | "tool";
+    itemType: "news" | "podcast" | "tool" | "video";
     title: string;
     subtitle?: string;
     url?: string;

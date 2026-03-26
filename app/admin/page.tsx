@@ -40,6 +40,13 @@ export default function AdminPage() {
       color: "from-yellow-500 to-orange-500",
     },
     {
+      href: "/videos",
+      icon: "🎬",
+      title: language === "zh" ? "视频管理" : "Video Management",
+      desc: language === "zh" ? "发布和管理视频内容" : "Publish and manage videos",
+      color: "from-purple-500 to-indigo-500",
+    },
+    {
       href: "/votes",
       icon: "📊",
       title: language === "zh" ? "投票管理" : "Vote Management",

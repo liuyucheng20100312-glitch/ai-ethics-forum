@@ -6,8 +6,8 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import type { TranslationKey } from "../context/LanguageContext";
 
-type TabKey = "myPosts" | "myBookmarks" | "myLikes" | "myFollows";
-const TAB_KEYS: TabKey[] = ["myPosts", "myBookmarks", "myLikes", "myFollows"];
+type TabKey = "myPosts" | "myBookmarks" | "myLikes" | "myFollows" | "myFollowers";
+const TAB_KEYS: TabKey[] = ["myPosts", "myBookmarks", "myLikes", "myFollows", "myFollowers"];
 const LS_KEY = "ai_ethics_profile";
 
 interface LikedPost {
@@ -96,10 +96,12 @@ export default function ProfilePage() {
   const [myPosts, setMyPosts] = useState<MyPost[]>([]);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const [followings, setFollowings] = useState<{ followingUsername: string; followedAt: string }[]>([]);
+  const [followers, setFollowers] = useState<{ followerUsername: string; followerId: string; followedAt: string }[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [likesLoading, setLikesLoading] = useState(false);
   const [bookmarksLoading, setBookmarksLoading] = useState(false);
   const [followsLoading, setFollowsLoading] = useState(false);
+  const [followersLoading, setFollowersLoading] = useState(false);
   const [pendingAvatar, setPendingAvatar] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
@@ -118,6 +120,7 @@ export default function ProfilePage() {
       .catch(() => {});
     fetchMyPosts();
     fetchMyFollows();
+    fetchMyFollowers();
     fetchMyBookmarks();
   }, [isGuest, user]);  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -145,11 +148,21 @@ export default function ProfilePage() {
   async function fetchMyFollows() {
     setFollowsLoading(true);
     try {
-      const res = await authFetch("/api/follows");
+      const res = await authFetch("/api/follows?type=following");
       const data = await res.json();
       setFollowings(Array.isArray(data) ? data : []);
     } catch {}
     finally { setFollowsLoading(false); }
+  }
+
+  async function fetchMyFollowers() {
+    setFollowersLoading(true);
+    try {
+      const res = await authFetch("/api/follows?type=followers");
+      const data = await res.json();
+      setFollowers(Array.isArray(data) ? data : []);
+    } catch {}
+    finally { setFollowersLoading(false); }
   }
 
   async function fetchMyBookmarks() {
@@ -177,6 +190,7 @@ export default function ProfilePage() {
     if (tab === "myLikes") fetchMyLikes();
     if (tab === "myPosts") fetchMyPosts();
     if (tab === "myFollows") fetchMyFollows();
+    if (tab === "myFollowers") fetchMyFollowers();
     if (tab === "myBookmarks") fetchMyBookmarks();
   }
 
@@ -268,7 +282,7 @@ export default function ProfilePage() {
     setPendingFile(null);
   }
 
-  const statsCount = { posts: myPosts.length, likes: likedPosts.length, follows: followings.length, bookmarks: bookmarks.length };
+  const statsCount = { posts: myPosts.length, likes: likedPosts.length, follows: followings.length, followers: followers.length, bookmarks: bookmarks.length };
   const displayName = user?.verified && user?.realName ? user.realName : user?.username ?? "";
 
   return (
@@ -382,6 +396,7 @@ export default function ProfilePage() {
                   <span><strong className="text-gray-900">{statsCount.bookmarks}</strong> {t("myBookmarks")}</span>
                   <span><strong className="text-gray-900">{statsCount.likes}</strong> {t("myLikes")}</span>
                   <span><strong className="text-gray-900">{statsCount.follows}</strong> {t("myFollows")}</span>
+                  <span><strong className="text-gray-900">{statsCount.followers}</strong> {language === "zh" ? "粉丝" : "Followers"}</span>
                 </div>
                 <button onClick={openEdit} className="text-sm border border-gray-300 px-4 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
                   {t("editProfile")}
@@ -506,14 +521,39 @@ export default function ProfilePage() {
           ) : (
             <div className="space-y-3">
               {followings.map((f) => (
-                <div key={f.followingUsername} className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-5 py-4 shadow-sm">
-                  <div>
-                    <p className="font-medium text-gray-900">{f.followingUsername}</p>
+                <div key={f.followingUsername} className="flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-5 py-4 shadow-sm">
+                  <Link href={`/user/${f.followingUsername}`} className="hover:text-blue-600 transition-colors">
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{f.followingUsername}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{t("followedAt")} {new Date(f.followedAt).toLocaleDateString(language === "en" ? "en-US" : "zh-CN")}</p>
-                  </div>
-                  <button onClick={() => handleUnfollow(f.followingUsername)} className="text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-500 hover:border-red-300 hover:text-red-500 transition-colors">
+                  </Link>
+                  <button onClick={() => handleUnfollow(f.followingUsername)} className="text-xs px-3 py-1 rounded-full border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-red-300 hover:text-red-500 transition-colors">
                     {t("unfollow")}
                   </button>
+                </div>
+              ))}
+            </div>
+          )
+        ) : activeTab === "myFollowers" ? (
+          followersLoading ? (
+            <div className="flex justify-center py-12"><span className="text-gray-400 text-sm">{t("loading")}</span></div>
+          ) : followers.length === 0 ? (
+            <EmptyState icon="👤" text={language === "zh" ? "还没有粉丝" : "No followers yet"} />
+          ) : (
+            <div className="space-y-3">
+              {followers.map((f) => (
+                <div key={f.followerId} className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-5 py-4 shadow-sm">
+                  <div>
+                    <p className="font-medium text-gray-900">{f.followerUsername}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {language === "zh" ? "关注于" : "Followed at"} {new Date(f.followedAt).toLocaleDateString(language === "en" ? "en-US" : "zh-CN")}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/user/${f.followerUsername}`}
+                    className="text-xs px-3 py-1 rounded-full border border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors"
+                  >
+                    {language === "zh" ? "查看主页" : "View Profile"}
+                  </Link>
                 </div>
               ))}
             </div>

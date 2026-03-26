@@ -12,6 +12,7 @@ function isAdmin(userId: string | undefined): boolean {
 
 const navItemsZh = [
   { label: "首页",     labelEn: "Home",     href: "/" },
+  { label: "视频专区", labelEn: "Videos",   href: "/videos" },
   { label: "播客专区", labelEn: "Podcast",  href: "/podcast" },
   { label: "新闻专区", labelEn: "News",     href: "/news" },
   { label: "AI工具推荐",labelEn:"Tools",    href: "/tools" },

@@ -7,6 +7,7 @@ import { useLanguage } from "./context/LanguageContext";
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 type Post = { _id: string; title: string; author?: string; category?: string; content?: string; createdAt?: string };
+type Video = { _id: string; title: string; titleEn?: string; uploader: string; uploaderEn?: string; coverImage: string; videoUrl: string; viewCount: number };
 
 const topics = [
   { labelZh: "AI伦理", labelEn: "AI Ethics", href: "/forum" },
@@ -18,7 +19,9 @@ const topics = [
 export default function Home() {
   const { t, language } = useLanguage();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
+  const [videosLoading, setVideosLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -37,8 +40,23 @@ export default function Home() {
     }
   };
 
+  const fetchVideos = async () => {
+    try {
+      const res = await fetch("/api/videos");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setVideos(data.slice(0, 4));
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setVideosLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchPosts();
+    fetchVideos();
     timerRef.current = setInterval(fetchPosts, REFRESH_INTERVAL_MS);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
@@ -83,6 +101,64 @@ export default function Home() {
           <span className="mx-2 text-white/30">|</span>
           <span className="text-white/60 text-xs font-light tracking-wide">Wisdom · Innovation · Aspiration · Integrity</span>
         </div>
+      </section>
+
+      {/* 精选视频 */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+            🎬 {language === "zh" ? "精选视频" : "Featured Videos"}
+          </h2>
+          <Link href="/videos" className="text-sm text-blue-600 hover:underline">
+            {language === "zh" ? "查看全部 →" : "View all →"}
+          </Link>
+        </div>
+
+        {videosLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden animate-pulse">
+                <div className="aspect-video bg-gray-200 dark:bg-gray-700" />
+                <div className="p-3">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2" />
+                  <div className="h-3 bg-gray-100 dark:bg-gray-600 rounded w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : videos.length === 0 ? null : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {videos.map((video) => {
+              const displayTitle = language === "en" && video.titleEn ? video.titleEn : video.title;
+              const displayUploader = language === "en" && video.uploaderEn ? video.uploaderEn : video.uploader;
+              return (
+                <Link key={video._id} href={`/videos/${video._id}`}>
+                  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:border-blue-200 dark:hover:border-blue-700 transition-all hover:-translate-y-0.5 group">
+                    <div className="relative aspect-video bg-gray-100 dark:bg-gray-700">
+                      <img src={video.coverImage} alt={displayTitle} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
+                          <svg className="w-6 h-6 text-blue-600 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="absolute bottom-1 right-1">
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-black/60 text-white">
+                          👁 {video.viewCount || 0}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3">
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-2 text-sm mb-1">{displayTitle}</h3>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">{displayUploader}</p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* 最新帖子 — live from DB */}
