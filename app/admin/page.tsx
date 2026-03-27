@@ -26,8 +26,15 @@ export default function AdminPage() {
 
   const menuItems = [
     {
-      href: "/admin/sensitive-words",
+      href: "/admin/posts",
       icon: "📝",
+      title: language === "zh" ? "帖子管理" : "Posts Management",
+      desc: language === "zh" ? "管理所有帖子，上架/下架/删除" : "Manage posts, publish/hide/delete",
+      color: "from-blue-500 to-cyan-500",
+    },
+    {
+      href: "/admin/sensitive-words",
+      icon: "🔒",
       title: language === "zh" ? "敏感词管理" : "Sensitive Words",
       desc: language === "zh" ? "管理敏感词库，支持批量导入" : "Manage sensitive words, batch import supported",
       color: "from-red-500 to-pink-500",
@@ -51,7 +58,7 @@ export default function AdminPage() {
       icon: "📊",
       title: language === "zh" ? "投票管理" : "Vote Management",
       desc: language === "zh" ? "管理投票内容" : "Manage votes",
-      color: "from-blue-500 to-cyan-500",
+      color: "from-indigo-500 to-purple-500",
     },
     {
       href: "/surveys",

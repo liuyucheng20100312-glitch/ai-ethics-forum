@@ -10,7 +10,9 @@
       "WebFetch(domain:github.com)",
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
-      "WebFetch(domain:www.253.com)"
+      "WebFetch(domain:www.253.com)",
+      "Bash(curl:*)",
+      "Bash(timeout 5 npx tsx:*)"
     ]
   }
 }

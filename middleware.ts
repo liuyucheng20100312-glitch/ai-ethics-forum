@@ -13,6 +13,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/api/posts") ||
     pathname.startsWith("/api/replies") ||
     pathname.startsWith("/api/creative") ||
+    pathname.startsWith("/api/auto-posts") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/school-logo") ||
     PUBLIC_PATHS.some((p) => pathname === p)

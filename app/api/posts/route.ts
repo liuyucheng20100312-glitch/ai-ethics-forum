@@ -12,8 +12,12 @@ export async function GET(request: NextRequest) {
     const authorFilter = searchParams.get("author");
     const query: any = authorFilter ? { author: authorFilter } : {};
 
-    // 不显示被拒绝的帖子
-    query.status = { $ne: "rejected" };
+    // 不显示被拒绝、待审核和已下架的帖子
+    // 显示：1) status为approved的帖子 2) 没有status字段的旧帖子（视为已审核）
+    query.$or = [
+      { status: "approved" },
+      { status: { $exists: false } }
+    ];
 
     const posts = await db
       .collection("posts")

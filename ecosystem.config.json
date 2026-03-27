@@ -1,0 +1,23 @@
+{
+  "apps": [
+    {
+      "name": "ai-ethics-forum",
+      "script": "npm",
+      "args": "start",
+      "env": {
+        "NODE_ENV": "production"
+      }
+    },
+    {
+      "name": "ai-post-scheduler",
+      "script": "npx tsx scripts/scheduler.ts",
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "watch": false,
+      "autorestart": true,
+      "max_restarts": 5,
+      "restart_delay": 10000
+    }
+  ]
+}
