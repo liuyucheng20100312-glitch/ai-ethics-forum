@@ -26,6 +26,13 @@ export default function AdminPage() {
 
   const menuItems = [
     {
+      href: "/admin/podcast",
+      icon: "🎧",
+      title: language === "zh" ? "播客专辑" : "Podcast Albums",
+      desc: language === "zh" ? "创建专辑主介绍并维护每一期播放链接" : "Create podcast albums and manage episode links",
+      color: "from-slate-700 to-blue-600",
+    },
+    {
       href: "/admin/posts",
       icon: "📝",
       title: language === "zh" ? "帖子管理" : "Posts Management",
@@ -66,6 +73,20 @@ export default function AdminPage() {
       title: language === "zh" ? "问卷管理" : "Survey Management",
       desc: language === "zh" ? "管理调查问卷" : "Manage surveys",
       color: "from-green-500 to-teal-500",
+    },
+    {
+      href: "/admin/feedback",
+      icon: "📬",
+      title: language === "zh" ? "反馈管理" : "Feedback Management",
+      desc: language === "zh" ? "查看用户意见反馈" : "View user feedback",
+      color: "from-teal-500 to-cyan-500",
+    },
+    {
+      href: "/admin/users",
+      icon: "👥",
+      title: language === "zh" ? "用户管理" : "User Management",
+      desc: language === "zh" ? "管理用户，新增/编辑/禁用/删除" : "Manage users, add/edit/disable/delete",
+      color: "from-pink-500 to-rose-500",
     },
   ];
 

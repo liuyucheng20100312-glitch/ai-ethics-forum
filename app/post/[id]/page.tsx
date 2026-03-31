@@ -14,6 +14,7 @@ interface Post {
   category: string;
   content: string;
   contentEn?: string;
+  linkUrl?: string;
   replies: number;
   createdAt: string;
 }
@@ -182,6 +183,7 @@ export default function PostDetailPage() {
   const displayTitle = showEn && post.titleEn ? post.titleEn : post.title;
   const displayContent = showEn && post.contentEn ? post.contentEn : post.content;
   const dateLocale = language === "en" ? "en-US" : "zh-CN";
+  const hasLink = !!(post.linkUrl && post.linkUrl.trim());
 
   return (
     <div>
@@ -222,15 +224,36 @@ export default function PostDetailPage() {
             )}
             <span>🏷️ {post.category}</span>
             <span>🕐 {new Date(post.createdAt).toLocaleString(dateLocale)}</span>
+            {hasLink && (
+              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 text-xs font-medium">
+                {t("linkPostBadge")}
+              </span>
+            )}
           </div>
         </div>
         <hr className="my-6" />
-        <p className="text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
-          {displayContent}
-        </p>
-        {!hasEnglish && language === "en" && (
-          <p className="mt-4 text-xs text-gray-400 italic">{t("translationNotAvailable")}</p>
+
+        {/* Link content - iframe or regular content */}
+        {hasLink ? (
+          <div className="w-full" style={{ minHeight: "60vh" }}>
+            <iframe
+              src={post.linkUrl}
+              className="w-full h-[60vh] border-0 rounded-lg"
+              title={displayTitle}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            />
+          </div>
+        ) : (
+          <>
+            <p className="text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+              {displayContent}
+            </p>
+            {!hasEnglish && language === "en" && (
+              <p className="mt-4 text-xs text-gray-400 italic">{t("translationNotAvailable")}</p>
+            )}
+          </>
         )}
+
         <div className="mt-6 flex items-center gap-3">
           {isGuest ? (
             <span className="text-sm text-gray-400 italic">{t("guestCannotLike")} &nbsp;·&nbsp; {t("guestCannotFollow")}</span>

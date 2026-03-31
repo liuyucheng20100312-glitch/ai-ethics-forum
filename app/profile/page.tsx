@@ -31,7 +31,7 @@ interface MyPost {
 
 interface BookmarkItem {
   itemId: string;
-  itemType: "news" | "podcast" | "tool";
+  itemType: "news" | "podcast" | "tool" | "video";
   title: string;
   subtitle: string;
   url?: string;

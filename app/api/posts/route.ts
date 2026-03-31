@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const { db } = await connectToDatabase();
     const body = await request.json();
 
-    const { title, titleEn, author, category, content, contentEn } = body;
+    const { title, titleEn, author, category, content, contentEn, linkUrl } = body;
 
     // 验证必填字段
     if (!title || !author || !category || !content) {
@@ -51,6 +51,26 @@ export async function POST(request: NextRequest) {
         { error: "缺少必填字段" },
         { status: 400 }
       );
+    }
+
+    // 验证链接格式（如果提供）
+    let validatedLinkUrl: string | undefined;
+    if (linkUrl && linkUrl.trim()) {
+      try {
+        const url = new URL(linkUrl.trim());
+        if (url.protocol !== "http:" && url.protocol !== "https:") {
+          return NextResponse.json(
+            { error: "链接必须是有效的HTTP或HTTPS地址" },
+            { status: 400 }
+          );
+        }
+        validatedLinkUrl = linkUrl.trim();
+      } catch {
+        return NextResponse.json(
+          { error: "链接格式无效" },
+          { status: 400 }
+        );
+      }
     }
 
     // 检测敏感词
@@ -67,6 +87,7 @@ export async function POST(request: NextRequest) {
       category,
       content,
       contentEn: contentEn || "",
+      linkUrl: validatedLinkUrl || "",
       replies: 0,
       status: postStatus,
       createdAt: new Date(),

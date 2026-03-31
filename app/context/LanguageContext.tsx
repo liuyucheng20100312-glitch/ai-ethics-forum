@@ -361,6 +361,12 @@ const translations = {
     noFollowers: "还没有粉丝",
     followedByAt: "关注于",
     viewProfile: "查看主页",
+    // Link post
+    linkUrlLabel: "链接地址（选填，仅管理员）",
+    linkUrlPlaceholder: "https://example.com",
+    linkUrlHint: "填写后，帖子详情页将直接展示此链接内容",
+    linkPost: "🔗 链接帖子",
+    linkPostBadge: "链接",
   },
   en: {
     // Auth
@@ -718,6 +724,12 @@ const translations = {
     noFollowers: "No followers yet",
     followedByAt: "Followed at",
     viewProfile: "View Profile",
+    // Link post
+    linkUrlLabel: "Link URL (optional, admin only)",
+    linkUrlPlaceholder: "https://example.com",
+    linkUrlHint: "If provided, the post detail page will display this link content directly",
+    linkPost: "🔗 Link Post",
+    linkPostBadge: "Link",
   },
 } as const;
 

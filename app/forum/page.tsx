@@ -14,6 +14,7 @@ interface Post {
   category: string;
   content: string;
   contentEn?: string;
+  linkUrl?: string;
   replies: number;
   createdAt: string;
 }
@@ -149,18 +150,29 @@ export default function ForumPage() {
             const displayTitle = language === "en" && post.titleEn ? post.titleEn : post.title;
             const displayContent = language === "en" && post.contentEn ? post.contentEn : post.content;
             const isFollowed = followingSet.has(post.author);
+            const hasLink = !!(post.linkUrl && post.linkUrl.trim());
             return (
               <Link key={post._id} href={`/post/${post._id}`}>
                 <div className={`bg-white dark:bg-gray-800 border rounded-lg p-6 hover:shadow-lg hover:border-blue-400 transition cursor-pointer ${
                   isFollowed ? "border-blue-300 dark:border-blue-600" : "border-gray-200 dark:border-gray-700"
                 }`}>
                   <div className="flex items-start justify-between gap-2 mb-3">
-                    <h3 className="text-xl font-bold text-blue-600">{displayTitle}</h3>
-                    {isFollowed && (
-                      <span className="flex-shrink-0 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
-                        {t("followingBadge")}
-                      </span>
-                    )}
+                    <h3 className="text-xl font-bold text-blue-600">
+                      {hasLink && <span className="mr-1">🔗</span>}
+                      {displayTitle}
+                    </h3>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {hasLink && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium">
+                          {t("linkPostBadge")}
+                        </span>
+                      )}
+                      {isFollowed && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                          {t("followingBadge")}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">{displayContent}</p>
                   <div className="flex gap-4 text-sm text-gray-500 flex-wrap">

@@ -12,7 +12,12 @@
       "Bash(npm run:*)",
       "WebFetch(domain:www.253.com)",
       "Bash(curl:*)",
-      "Bash(timeout 5 npx tsx:*)"
+      "Bash(timeout 5 npx tsx:*)",
+      "Bash(python3:*)",
+      "Bash(unzip:*)",
+      "Bash(npx tsx:*)",
+      "Bash(export:*)",
+      "Bash(MONGODB_URI='mongodb://admin:kslmFVQVylH2VXgD@119.91.221.122:8081/?authSource=admin' npx tsx:*)"
     ]
   }
 }

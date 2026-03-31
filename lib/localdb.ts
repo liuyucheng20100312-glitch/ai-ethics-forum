@@ -71,6 +71,13 @@ export class LocalObjectId {
 // ── Simple in-memory query matcher ───────────────────────────────────────────
 function matches(doc: Record<string, unknown>, filter: Record<string, unknown>): boolean {
   for (const [key, val] of Object.entries(filter)) {
+    // Handle $or operator at top level
+    if (key === "$or") {
+      const conditions = val as Record<string, unknown>[];
+      if (!conditions.some(cond => matches(doc, cond))) return false;
+      continue;
+    }
+
     if (val === null || val === undefined) { if (doc[key] != null) return false; continue; }
     if (typeof val === "object" && !Array.isArray(val)) {
       const ops = val as Record<string, unknown>;
@@ -79,6 +86,16 @@ function matches(doc: Record<string, unknown>, filter: Record<string, unknown>):
       if ("$ne" in ops) { if (docVal === ops.$ne) return false; continue; }
       if ("$gt" in ops) { if ((docVal as number) <= (ops.$gt as number)) return false; continue; }
       if ("$lt" in ops) { if ((docVal as number) >= (ops.$lt as number)) return false; continue; }
+      if ("$gte" in ops) { if ((docVal as number) < (ops.$gte as number)) return false; continue; }
+      if ("$lte" in ops) { if ((docVal as number) > (ops.$lte as number)) return false; continue; }
+      if ("$regex" in ops) {
+        const pattern = ops.$regex as string;
+        const options = (ops.$options as string) || "";
+        const flags = options.includes("i") ? "i" : "";
+        const regex = new RegExp(pattern, flags);
+        if (!regex.test(String(docVal ?? ""))) return false;
+        continue;
+      }
       // nested field – compare recursively
       if (!matches(doc[key] as Record<string, unknown> ?? {}, ops)) return false;
     } else {

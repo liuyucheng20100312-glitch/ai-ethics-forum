@@ -39,6 +39,7 @@ export default function NewPostPage() {
     category: "AI安全",
     content: "",
     contentEn: "",
+    linkUrl: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -68,6 +69,7 @@ export default function NewPostPage() {
       };
       if (formData.titleEn.trim()) body.titleEn = formData.titleEn.trim();
       if (formData.contentEn.trim()) body.contentEn = formData.contentEn.trim();
+      if (formData.linkUrl.trim() && user?.isAdmin) body.linkUrl = formData.linkUrl.trim();
 
       const response = await fetch("/api/posts", {
         method: "POST",
@@ -187,6 +189,24 @@ export default function NewPostPage() {
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+
+        {/* Link URL (admin only) */}
+        {user?.isAdmin && (
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
+              {t("linkUrlLabel")}
+            </label>
+            <input
+              type="url"
+              name="linkUrl"
+              value={formData.linkUrl}
+              onChange={handleChange}
+              placeholder={t("linkUrlPlaceholder")}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">{t("linkUrlHint")}</p>
+          </div>
+        )}
 
         {/* Buttons */}
         <div className="flex gap-4">
