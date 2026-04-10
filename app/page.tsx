@@ -27,12 +27,13 @@ export default function Home() {
 
   const fetchPosts = async () => {
     try {
-      const res = await fetch("/api/posts");
+      // 首页只展示 3 条，直接限制服务端返回量，避免拉取全部帖子
+      const res = await fetch("/api/posts?limit=3");
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setPosts(data.slice(0, 3));
-        setLastUpdated(new Date());
-      }
+      // API 现在返回 { posts, total, ... } 分页格式；兼容旧裸数组格式以防万一
+      const list: Post[] = Array.isArray(data) ? data : (data.posts ?? []);
+      setPosts(list.slice(0, 3));
+      setLastUpdated(new Date());
     } catch {
       // silently ignore; keep showing previous posts
     } finally {

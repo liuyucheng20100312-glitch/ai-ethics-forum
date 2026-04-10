@@ -1,12 +1,8 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
+import { isAdminUser, unauth, forbidden, notFound, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-
-// 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
 
 // GET: 获取单个投票详情
 export async function GET(
@@ -51,9 +47,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user) {
-    return NextResponse.json({ error: "未登录" }, { status: 401 });
-  }
+  if (!user) return unauth();
 
   try {
     const { id } = await params;
@@ -67,19 +61,15 @@ export async function PUT(
       vote = await db.collection("votes").findOne({ _id: id as never });
     }
 
-    if (!vote) {
-      return NextResponse.json({ error: "投票不存在" }, { status: 404 });
-    }
+    if (!vote) return notFound("投票不存在");
 
     const isAuthor = vote.authorId === user.userId;
-    const isUserAdmin = isAdmin(user.userId);
+    const isUserAdmin = isAdminUser(user.userId);
 
     // 只有作者或管理员可以修改
-    if (!isAuthor && !isUserAdmin) {
-      return NextResponse.json({ error: "无权限修改此投票" }, { status: 403 });
-    }
+    if (!isAuthor && !isUserAdmin) return forbidden();
 
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
     };
 
@@ -115,10 +105,7 @@ export async function PUT(
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("更新投票失败:", error);
-    return NextResponse.json(
-      { error: "更新投票失败" },
-      { status: 500 }
-    );
+    return serverError("更新投票失败");
   }
 }
 
@@ -128,9 +115,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user) {
-    return NextResponse.json({ error: "未登录" }, { status: 401 });
-  }
+  if (!user) return unauth();
 
   try {
     const { id } = await params;
@@ -143,17 +128,13 @@ export async function DELETE(
       vote = await db.collection("votes").findOne({ _id: id as never });
     }
 
-    if (!vote) {
-      return NextResponse.json({ error: "投票不存在" }, { status: 404 });
-    }
+    if (!vote) return notFound("投票不存在");
 
     const isAuthor = vote.authorId === user.userId;
-    const isUserAdmin = isAdmin(user.userId);
+    const isUserAdmin = isAdminUser(user.userId);
 
     // 作者和管理员都可以删除
-    if (!isAuthor && !isUserAdmin) {
-      return NextResponse.json({ error: "无权限删除此投票" }, { status: 403 });
-    }
+    if (!isAuthor && !isUserAdmin) return forbidden();
 
     try {
       await db.collection("votes").deleteOne({ _id: new ObjectId(id) });
@@ -168,9 +149,6 @@ export async function DELETE(
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("删除投票失败:", error);
-    return NextResponse.json(
-      { error: "删除投票失败" },
-      { status: 500 }
-    );
+    return serverError("删除投票失败");
   }
 }

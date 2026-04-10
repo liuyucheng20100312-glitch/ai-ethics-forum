@@ -1,59 +1,35 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
+import { isAdminUser, tryParseObjectId, unauth, forbidden, notFound, badRequest, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
 
-// 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
-
-// Helper: try to create ObjectId, return null if invalid format
-function tryParseObjectId(id: string): ObjectId | null {
-  try {
-    if (/^[a-fA-F0-9]{24}$/.test(id)) {
-      return new ObjectId(id);
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-// GET: 获取单个帖子详情
+// GET: 获取单个帖子详情（仅管理员）
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限访问" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { id } = await params;
     const { db } = await connectToDatabase();
 
-    let post = null;
+    // Try ObjectId first, then fallback to string _id (for local-db data)
     const objectId = tryParseObjectId(id);
-    if (objectId) {
-      post = await db.collection("posts").findOne({ _id: objectId });
-    }
-    if (!post) {
-      post = await db.collection("posts").findOne({ _id: id });
-    }
+    const post =
+      (objectId ? await db.collection("posts").findOne({ _id: objectId }) : null) ??
+      (await db.collection("posts").findOne({ _id: id } as Record<string, unknown>));
 
-    if (!post) {
-      return NextResponse.json({ error: "帖子不存在" }, { status: 404 });
-    }
+    if (!post) return notFound("帖子不存在");
 
-    // 获取回复数
     const replyCount = await db.collection("replies").countDocuments({ postId: id });
 
     return NextResponse.json({ ...post, replyCount });
   } catch (error) {
     console.error("获取帖子详情失败:", error);
-    return NextResponse.json({ error: "获取帖子详情失败" }, { status: 500 });
+    return serverError("获取帖子详情失败");
   }
 }
 
@@ -63,124 +39,81 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限操作" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { id } = await params;
     const { db } = await connectToDatabase();
-    const body = await request.json();
+    const { status, adminNote } = await request.json();
 
-    const { status, adminNote } = body;
-
-    // 验证状态值
     const validStatuses = ["approved", "pending", "rejected", "hidden"];
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json({ error: "无效的状态值" }, { status: 400 });
-    }
+    if (!validStatuses.includes(status)) return badRequest("无效的状态值");
 
-    // 查找帖子
-    let post = null;
+    // Try ObjectId first, then fallback to string _id
     const objectId = tryParseObjectId(id);
-    if (objectId) {
-      post = await db.collection("posts").findOne({ _id: objectId });
-    }
-    if (!post) {
-      post = await db.collection("posts").findOne({ _id: id });
-    }
+    const post =
+      (objectId ? await db.collection("posts").findOne({ _id: objectId }) : null) ??
+      (await db.collection("posts").findOne({ _id: id } as Record<string, unknown>));
 
-    if (!post) {
-      return NextResponse.json({ error: "帖子不存在" }, { status: 404 });
-    }
+    if (!post) return notFound("帖子不存在");
 
-    // 更新帖子状态
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       status,
       updatedAt: new Date(),
       reviewedBy: user.username,
       reviewedAt: new Date(),
     };
+    if (adminNote) updateData.adminNote = adminNote;
+    if (status === "approved") updateData.approvedAt = new Date();
+    else if (status === "rejected") updateData.rejectedAt = new Date();
+    else if (status === "hidden") updateData.hiddenAt = new Date();
 
-    if (adminNote) {
-      updateData.adminNote = adminNote;
-    }
-
-    if (status === "approved") {
-      updateData.approvedAt = new Date();
-    } else if (status === "rejected") {
-      updateData.rejectedAt = new Date();
-    } else if (status === "hidden") {
-      updateData.hiddenAt = new Date();
-    }
-
-    // 更新帖子
-    if (objectId) {
-      await db.collection("posts").updateOne(
-        { _id: objectId },
-        { $set: updateData }
-      );
-    } else {
-      await db.collection("posts").updateOne(
-        { _id: id } as any,
-        { $set: updateData }
-      );
-    }
+    const filter = objectId
+      ? { _id: objectId }
+      : ({ _id: id } as Record<string, unknown>);
+    await db.collection("posts").updateOne(filter, { $set: updateData });
 
     return NextResponse.json({ ok: true, status });
   } catch (error) {
     console.error("更新帖子状态失败:", error);
-    return NextResponse.json({ error: "更新帖子状态失败" }, { status: 500 });
+    return serverError("更新帖子状态失败");
   }
 }
 
-// DELETE: 删除帖子
+// DELETE: 删除帖子及其关联回复和审核记录
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限操作" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { id } = await params;
     const { db } = await connectToDatabase();
 
-    // 查找帖子
-    let post = null;
     const objectId = tryParseObjectId(id);
-    if (objectId) {
-      post = await db.collection("posts").findOne({ _id: objectId });
-    }
-    if (!post) {
-      post = await db.collection("posts").findOne({ _id: id });
-    }
+    const post =
+      (objectId ? await db.collection("posts").findOne({ _id: objectId }) : null) ??
+      (await db.collection("posts").findOne({ _id: id } as Record<string, unknown>));
 
-    if (!post) {
-      return NextResponse.json({ error: "帖子不存在" }, { status: 404 });
-    }
+    if (!post) return notFound("帖子不存在");
 
-    // 删除帖子
-    if (objectId) {
-      await db.collection("posts").deleteOne({ _id: objectId });
-    } else {
-      await db.collection("posts").deleteOne({ _id: id } as any);
-    }
+    const filter = objectId
+      ? { _id: objectId }
+      : ({ _id: id } as Record<string, unknown>);
 
-    // 删除相关回复
-    await db.collection("replies").deleteMany({ postId: id });
-
-    // 删除相关审核记录（如果有）
-    await db.collection("moderation_records").deleteMany({
-      contentId: id,
-      contentType: "post"
-    });
+    await Promise.all([
+      db.collection("posts").deleteOne(filter),
+      db.collection("replies").deleteMany({ postId: id }),
+      db.collection("moderation_records").deleteMany({ contentId: id, contentType: "post" }),
+    ]);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("删除帖子失败:", error);
-    return NextResponse.json({ error: "删除帖子失败" }, { status: 500 });
+    return serverError("删除帖子失败");
   }
 }

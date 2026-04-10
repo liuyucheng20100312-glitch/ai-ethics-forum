@@ -1,13 +1,8 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
 import { detectSensitiveWords, createModerationRecord } from "@/lib/sensitive";
+import { isAdminUser, unauth, badRequest, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
-
-// 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
 
 // GET: 获取所有投票
 export async function GET(request: NextRequest) {
@@ -19,12 +14,13 @@ export async function GET(request: NextRequest) {
     const adminView = searchParams.get("adminView") === "true";
     const user = getUserFromRequest(request);
 
-    const query: any = {};
+    const query: Record<string, unknown> = {};
     if (authorFilter) query.author = authorFilter;
-    // 普通用户只能看到上架的投票，管理员可以看到所有
-    if (!isAdmin(user?.userId) || !adminView) {
+
+    if (!isAdminUser(user?.userId) || !adminView) {
+      // 普通用户只能看到上架的投票
       if (statusFilter) query.status = statusFilter;
-      query.isVisible = { $ne: false }; // 默认上架，只有显式设为false才是下架
+      query.isVisible = { $ne: false };
     } else {
       // 管理员可以按状态筛选
       if (statusFilter) query.status = statusFilter;
@@ -39,55 +35,45 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(votes);
   } catch (error) {
     console.error("获取投票失败:", error);
-    return NextResponse.json(
-      { error: "获取投票失败" },
-      { status: 500 }
-    );
+    return serverError("获取投票失败");
   }
 }
 
-// POST: 创建新投票
+// POST: 创建新投票（需要登录）
 export async function POST(request: NextRequest) {
   const user = getUserFromRequest(request);
-  if (!user) {
-    return NextResponse.json({ error: "未登录" }, { status: 401 });
-  }
+  if (!user) return unauth();
 
   try {
     const { db } = await connectToDatabase();
     const body = await request.json();
-
     const { title, titleEn, proDescription, proDescriptionEn, conDescription, conDescriptionEn } = body;
 
-    // 验证必填字段
     if (!title || !proDescription || !conDescription) {
-      return NextResponse.json(
-        { error: "缺少必填字段" },
-        { status: 400 }
-      );
+      return badRequest("缺少必填字段");
     }
 
     // 检测敏感词
     const textToCheck = `${title} ${proDescription} ${conDescription}`;
     const sensitiveResult = await detectSensitiveWords(textToCheck);
 
-    // 决定审核状态：有敏感词则待审核（隐藏），否则直接上架
+    // 有敏感词则下架待审核，否则直接上架
     const isVisible = !sensitiveResult.found;
 
     const newVote = {
       title,
       titleEn: titleEn || "",
-      proDescription,      // 正方观点描述
+      proDescription,
       proDescriptionEn: proDescriptionEn || "",
-      conDescription,      // 反方观点描述
+      conDescription,
       conDescriptionEn: conDescriptionEn || "",
       author: user.username,
       authorId: user.userId,
-      status: "active",    // active: 进行中, closed: 已结束
-      isVisible,           // 是否上架（有敏感词则默认下架待审核）
-      proCount: 0,         // 正方票数
-      conCount: 0,         // 反方票数
-      totalVoters: 0,      // 总投票人数
+      status: "active",
+      isVisible,
+      proCount: 0,
+      conCount: 0,
+      totalVoters: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -95,7 +81,6 @@ export async function POST(request: NextRequest) {
     const result = await db.collection("votes").insertOne(newVote);
     const voteId = result.insertedId.toString();
 
-    // 如果有敏感词，创建审核记录
     if (sensitiveResult.found) {
       await createModerationRecord({
         contentType: "vote",
@@ -114,9 +99,6 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("创建投票失败:", error);
-    return NextResponse.json(
-      { error: "创建投票失败" },
-      { status: 500 }
-    );
+    return serverError("创建投票失败");
   }
 }

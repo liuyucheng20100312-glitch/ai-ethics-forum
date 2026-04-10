@@ -1,12 +1,8 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
+import { isAdminUser } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-
-// 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
 
 // GET: 获取单个问卷详情
 export async function GET(
@@ -81,7 +77,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
+  if (!user || !isAdminUser(user.userId)) {
     return NextResponse.json({ error: "无权限修改问卷" }, { status: 403 });
   }
 
@@ -156,7 +152,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
+  if (!user || !isAdminUser(user.userId)) {
     return NextResponse.json({ error: "无权限删除问卷" }, { status: 403 });
   }
 

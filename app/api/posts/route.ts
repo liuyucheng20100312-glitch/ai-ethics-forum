@@ -1,56 +1,73 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
 import { detectSensitiveWords, createModerationRecord } from "@/lib/sensitive";
+import { unauth, badRequest, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
 
-// GET: 获取所有帖子，支持 ?author= 过滤
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 200;
+
+/**
+ * GET: 获取帖子列表，支持 ?author=、?page=、?limit= 参数
+ *
+ * 返回格式: { posts, total, page, totalPages }
+ * （注意：不是裸数组。前端已兼容两种格式。）
+ */
 export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
     const { searchParams } = new URL(request.url);
     const authorFilter = searchParams.get("author");
-    const query: any = authorFilter ? { author: authorFilter } : {};
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(searchParams.get("limit") || String(DEFAULT_LIMIT), 10)));
 
-    // 不显示被拒绝、待审核和已下架的帖子
-    // 显示：1) status为approved的帖子 2) 没有status字段的旧帖子（视为已审核）
+    const query: Record<string, unknown> = {};
+    if (authorFilter) query.author = authorFilter;
+
+    // 只显示已审核通过的帖子；同时保留没有 status 字段的历史旧帖（视为已审核通过）
     query.$or = [
       { status: "approved" },
-      { status: { $exists: false } }
+      { status: { $exists: false } }, // 兼容引入审核系统前的旧数据
     ];
 
+    const total = await db.collection("posts").countDocuments(query);
     const posts = await db
       .collection("posts")
       .find(query)
       .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
       .toArray();
 
-    return NextResponse.json(posts);
+    return NextResponse.json({
+      posts,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
     console.error("获取帖子失败:", error);
-    return NextResponse.json(
-      { error: "获取帖子失败" },
-      { status: 500 }
-    );
+    return serverError("获取帖子失败");
   }
 }
 
-// POST: 创建新帖子
+/**
+ * POST: 创建新帖子（需要登录）
+ *
+ * 安全说明：author/authorId 从 JWT token 中取，不接受客户端传入，
+ * 防止用户伪造他人身份发帖。
+ */
 export async function POST(request: NextRequest) {
   const user = getUserFromRequest(request);
+  if (!user) return unauth();
 
   try {
     const { db } = await connectToDatabase();
     const body = await request.json();
+    const { title, titleEn, category, content, contentEn, linkUrl } = body;
 
-    const { title, titleEn, author, category, content, contentEn, linkUrl } = body;
-
-    // 验证必填字段
-    if (!title || !author || !category || !content) {
-      return NextResponse.json(
-        { error: "缺少必填字段" },
-        { status: 400 }
-      );
+    if (!title || !category || !content) {
+      return badRequest("缺少必填字段");
     }
 
     // 验证链接格式（如果提供）
@@ -59,17 +76,11 @@ export async function POST(request: NextRequest) {
       try {
         const url = new URL(linkUrl.trim());
         if (url.protocol !== "http:" && url.protocol !== "https:") {
-          return NextResponse.json(
-            { error: "链接必须是有效的HTTP或HTTPS地址" },
-            { status: 400 }
-          );
+          return badRequest("链接必须是有效的HTTP或HTTPS地址");
         }
         validatedLinkUrl = linkUrl.trim();
       } catch {
-        return NextResponse.json(
-          { error: "链接格式无效" },
-          { status: 400 }
-        );
+        return badRequest("链接格式无效");
       }
     }
 
@@ -77,13 +88,15 @@ export async function POST(request: NextRequest) {
     const textToCheck = `${title} ${content}`;
     const sensitiveResult = await detectSensitiveWords(textToCheck);
 
-    // 决定审核状态：有敏感词则待审核，否则直接通过
+    // 有敏感词则待审核，否则直接通过
     const postStatus = sensitiveResult.found ? "pending" : "approved";
 
     const newPost = {
       title,
       titleEn: titleEn || "",
-      author,
+      // Author is always derived from the verified JWT token, never from the request body
+      author: user.username,
+      authorId: user.userId,
       category,
       content,
       contentEn: contentEn || "",
@@ -97,12 +110,11 @@ export async function POST(request: NextRequest) {
     const result = await db.collection("posts").insertOne(newPost);
     const postId = result.insertedId.toString();
 
-    // 如果有敏感词，创建审核记录
-    if (sensitiveResult.found && user) {
+    if (sensitiveResult.found) {
       await createModerationRecord({
         contentType: "post",
         contentId: postId,
-        author: author,
+        author: user.username,
         authorId: user.userId,
         content: textToCheck,
         sensitiveWords: sensitiveResult.words,
@@ -116,9 +128,6 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("创建帖子失败:", error);
-    return NextResponse.json(
-      { error: "创建帖子失败" },
-      { status: 500 }
-    );
+    return serverError("创建帖子失败");
   }
 }
