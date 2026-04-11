@@ -1,28 +1,23 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
+import { isAdminUser, unauth, forbidden, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
 
-// 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
-
-// GET: 获取审核列表
+// GET: 获取审核列表（仅管理员）
 export async function GET(request: NextRequest) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限访问" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { db } = await connectToDatabase();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") || "pending";
     const contentType = searchParams.get("contentType");
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.max(1, parseInt(searchParams.get("limit") || "20", 10));
 
-    const query: any = { status };
+    const query: Record<string, unknown> = { status };
     if (contentType) query.contentType = contentType;
 
     const total = await db.collection("moderation_records").countDocuments(query);
@@ -42,6 +37,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("获取审核列表失败:", error);
-    return NextResponse.json({ error: "获取审核列表失败" }, { status: 500 });
+    return serverError("获取审核列表失败");
   }
 }

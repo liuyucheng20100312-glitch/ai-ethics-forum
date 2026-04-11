@@ -1,20 +1,7 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
-import { ObjectId } from "mongodb";
+import { isAdminUser, tryParseObjectId, unauth, forbidden, notFound, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
-
-function isAdmin(userId: string | undefined) {
-  return userId === "offline_admin";
-}
-
-function tryParseObjectId(id: string): ObjectId | null {
-  try {
-    if (/^[a-fA-F0-9]{24}$/.test(id)) return new ObjectId(id);
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 function validateHttpUrl(value: string) {
   const url = new URL(value);
@@ -55,9 +42,8 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "Access denied" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { id } = await context.params;
@@ -84,18 +70,17 @@ export async function PUT(
       updatedAt: new Date().toISOString(),
     };
 
+    // Try ObjectId first, then fallback to string _id (for local-db data)
     const objectId = tryParseObjectId(id);
     let result = { matchedCount: 0, modifiedCount: 0 };
     if (objectId) {
       result = await db.collection("podcastAlbums").updateOne({ _id: objectId }, { $set: update });
     }
     if (result.matchedCount === 0) {
-      result = await db.collection("podcastAlbums").updateOne({ _id: id } as any, { $set: update });
+      result = await db.collection("podcastAlbums").updateOne({ _id: id } as Record<string, unknown>, { $set: update });
     }
 
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ error: "Album not found" }, { status: 404 });
-    }
+    if (result.matchedCount === 0) return notFound("Album not found");
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -109,9 +94,8 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "Access denied" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { id } = await context.params;
@@ -123,16 +107,14 @@ export async function DELETE(
       result = await db.collection("podcastAlbums").deleteOne({ _id: objectId });
     }
     if (result.deletedCount === 0) {
-      result = await db.collection("podcastAlbums").deleteOne({ _id: id } as any);
+      result = await db.collection("podcastAlbums").deleteOne({ _id: id } as Record<string, unknown>);
     }
 
-    if (result.deletedCount === 0) {
-      return NextResponse.json({ error: "Album not found" }, { status: 404 });
-    }
+    if (result.deletedCount === 0) return notFound("Album not found");
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Failed to delete album:", error);
-    return NextResponse.json({ error: "Failed to delete album" }, { status: 500 });
+    return serverError("Failed to delete album");
   }
 }

@@ -1,10 +1,7 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
+import { isAdminUser, unauth, forbidden, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
-
-function isAdmin(userId: string | undefined) {
-  return userId === "offline_admin";
-}
 
 type EpisodeInput = {
   title: string;
@@ -51,8 +48,9 @@ function normalizeEpisodes(value: unknown): EpisodeInput[] {
 
 export async function GET(request: NextRequest) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "Access denied" }, { status: 403 });
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) {
+    return forbidden();
   }
 
   try {
@@ -72,8 +70,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "Access denied" }, { status: 403 });
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) {
+    return forbidden();
   }
 
   try {

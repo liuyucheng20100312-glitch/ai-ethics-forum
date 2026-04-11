@@ -31,7 +31,7 @@ function GuestBlock({ t }: { t: (k: TranslationKey) => string }) {
 
 export default function NewPostPage() {
   const router = useRouter();
-  const { user, loading: authLoading, isGuest } = useAuth();
+  const { user, loading: authLoading, isGuest, authFetch } = useAuth();
   const { t } = useLanguage();
   const [formData, setFormData] = useState({
     title: "",
@@ -61,19 +61,19 @@ export default function NewPostPage() {
     }
 
     try {
+      // author/authorId are derived server-side from the JWT — do not send them
       const body: Record<string, string> = {
         title: formData.title,
         category: formData.category,
         content: formData.content,
-        author: user?.username ?? "匿名用户",
       };
       if (formData.titleEn.trim()) body.titleEn = formData.titleEn.trim();
       if (formData.contentEn.trim()) body.contentEn = formData.contentEn.trim();
       if (formData.linkUrl.trim() && user?.isAdmin) body.linkUrl = formData.linkUrl.trim();
 
-      const response = await fetch("/api/posts", {
+      // Use authFetch so the Authorization header is included
+      const response = await authFetch("/api/posts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 

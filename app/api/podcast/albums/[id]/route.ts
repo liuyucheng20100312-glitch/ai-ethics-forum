@@ -1,20 +1,7 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
-import { ObjectId } from "mongodb";
+import { isAdminUser, tryParseObjectId, notFound, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
-
-function tryParseObjectId(id: string): ObjectId | null {
-  try {
-    if (/^[a-fA-F0-9]{24}$/.test(id)) return new ObjectId(id);
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function isAdmin(userId: string | undefined) {
-  return userId === "offline_admin";
-}
 
 export async function GET(
   request: NextRequest,
@@ -35,16 +22,16 @@ export async function GET(
       album = await db.collection("podcastAlbums").findOne({ _id: id });
     }
 
-    if (!album) {
-      return NextResponse.json({ error: "Album not found" }, { status: 404 });
-    }
-    if (album.status !== "approved" && !isAdmin(user?.userId)) {
-      return NextResponse.json({ error: "Album not found" }, { status: 404 });
+    if (!album) return notFound("Album not found");
+
+    // Non-admin users cannot see hidden albums
+    if (album.status !== "approved" && !isAdminUser(user?.userId)) {
+      return notFound("Album not found");
     }
 
     return NextResponse.json(album);
   } catch (error) {
     console.error("Failed to load podcast album:", error);
-    return NextResponse.json({ error: "Failed to load podcast album" }, { status: 500 });
+    return serverError("Failed to load podcast album");
   }
 }
