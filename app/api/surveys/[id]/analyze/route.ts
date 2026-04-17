@@ -1,23 +1,18 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
 import { analyzeSurveyStatistics } from "@/lib/bailian";
+import { isAdminUser, unauth, forbidden } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 
-// 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
-
-// GET: 获取问卷统计分析
+// GET: 获取问卷统计分析（仅管理员）
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限查看分析" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { id } = await params;

@@ -1,19 +1,14 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
 import { clearSensitiveWordsCache } from "@/lib/sensitive";
+import { isAdminUser, unauth, forbidden, badRequest, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
 
-// 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
-
-// GET: 获取所有敏感词
+// GET: 获取所有敏感词（仅管理员）
 export async function GET(request: NextRequest) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限访问" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { db } = await connectToDatabase();
@@ -30,16 +25,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(words);
   } catch (error) {
     console.error("获取敏感词失败:", error);
-    return NextResponse.json({ error: "获取敏感词失败" }, { status: 500 });
+    return serverError("获取敏感词失败");
   }
 }
 
-// POST: 添加敏感词
+// POST: 添加敏感词（仅管理员）
 export async function POST(request: NextRequest) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限操作" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { db } = await connectToDatabase();
@@ -47,18 +41,14 @@ export async function POST(request: NextRequest) {
 
     const { word, category, severity } = body;
 
-    if (!word || !word.trim()) {
-      return NextResponse.json({ error: "敏感词不能为空" }, { status: 400 });
-    }
+    if (!word || !word.trim()) return badRequest("敏感词不能为空");
 
     // 检查是否已存在
     const existing = await db.collection("sensitive_words").findOne({
       word: word.trim().toLowerCase(),
     });
 
-    if (existing) {
-      return NextResponse.json({ error: "该敏感词已存在" }, { status: 400 });
-    }
+    if (existing) return badRequest("该敏感词已存在");
 
     const newWord = {
       word: word.trim(),
@@ -76,24 +66,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ...newWord, _id: result.insertedId }, { status: 201 });
   } catch (error) {
     console.error("添加敏感词失败:", error);
-    return NextResponse.json({ error: "添加敏感词失败" }, { status: 500 });
+    return serverError("添加敏感词失败");
   }
 }
 
-// DELETE: 批量删除敏感词
+// DELETE: 批量删除敏感词（仅管理员）
 export async function DELETE(request: NextRequest) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限操作" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { db } = await connectToDatabase();
-    const body = await request.json();
-    const { ids } = body;
+    const { ids } = await request.json();
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json({ error: "请选择要删除的敏感词" }, { status: 400 });
+      return badRequest("请选择要删除的敏感词");
     }
 
     const { ObjectId } = await import("mongodb");
@@ -109,24 +97,22 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ ok: true, deletedCount: ids.length });
   } catch (error) {
     console.error("删除敏感词失败:", error);
-    return NextResponse.json({ error: "删除敏感词失败" }, { status: 500 });
+    return serverError("删除敏感词失败");
   }
 }
 
-// PUT: 批量导入敏感词
+// PUT: 批量导入敏感词（仅管理员）
 export async function PUT(request: NextRequest) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限操作" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { db } = await connectToDatabase();
-    const body = await request.json();
-    const { words, category, severity } = body;
+    const { words, category, severity } = await request.json();
 
     if (!words || !Array.isArray(words) || words.length === 0) {
-      return NextResponse.json({ error: "请提供敏感词列表" }, { status: 400 });
+      return badRequest("请提供敏感词列表");
     }
 
     let addedCount = 0;
@@ -166,6 +152,6 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     console.error("批量导入失败:", error);
-    return NextResponse.json({ error: "批量导入失败" }, { status: 500 });
+    return serverError("批量导入失败");
   }
 }

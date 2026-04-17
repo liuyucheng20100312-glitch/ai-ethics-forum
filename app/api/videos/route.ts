@@ -1,12 +1,8 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
 import { detectSensitiveWords } from "@/lib/sensitive";
+import { isAdminUser, unauth, forbidden, badRequest, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
-
-// 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
 
 // GET: 获取所有视频
 export async function GET(request: NextRequest) {
@@ -16,10 +12,10 @@ export async function GET(request: NextRequest) {
     const adminView = searchParams.get("adminView") === "true";
     const user = getUserFromRequest(request);
 
-    const query: any = {};
-    // 普通用户只能看到上架的视频，管理员可以看到所有
-    if (!isAdmin(user?.userId) || !adminView) {
-      query.isVisible = { $ne: false }; // 默认上架，只有显式设为false才是下架
+    const query: Record<string, unknown> = {};
+    // 普通用户只能看到上架的视频
+    if (!isAdminUser(user?.userId) || !adminView) {
+      query.isVisible = { $ne: false };
     }
 
     const videos = await db
@@ -31,37 +27,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(videos);
   } catch (error) {
     console.error("获取视频失败:", error);
-    return NextResponse.json(
-      { error: "获取视频失败" },
-      { status: 500 }
-    );
+    return serverError("获取视频失败");
   }
 }
 
 // POST: 创建新视频（仅管理员）
 export async function POST(request: NextRequest) {
   const user = getUserFromRequest(request);
-  if (!user) {
-    return NextResponse.json({ error: "未登录" }, { status: 401 });
-  }
-
-  // 只有管理员可以发布视频
-  if (!isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限发布视频" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { db } = await connectToDatabase();
     const body = await request.json();
-
     const { title, titleEn, uploader, uploaderEn, coverImage, videoUrl, content, contentEn, forcePublish } = body;
 
-    // 验证必填字段
     if (!title || !uploader || !coverImage || !videoUrl || !content) {
-      return NextResponse.json(
-        { error: "缺少必填字段" },
-        { status: 400 }
-      );
+      return badRequest("缺少必填字段");
     }
 
     // 检测敏感词
@@ -100,15 +82,24 @@ export async function POST(request: NextRequest) {
 
     const result = await db.collection("videos").insertOne(newVideo);
 
+    if (sensitiveResult.found) {
+      await createModerationRecord({
+        contentType: "video",
+        contentId: videoId,
+        author: user.username,
+        authorId: user.userId,
+        content: textToCheck,
+        sensitiveWords: sensitiveResult.words,
+        status: "pending",
+      });
+    }
+
     return NextResponse.json(
       { ...newVideo, _id: result.insertedId },
       { status: 201 }
     );
   } catch (error) {
     console.error("创建视频失败:", error);
-    return NextResponse.json(
-      { error: "创建视频失败" },
-      { status: 500 }
-    );
+    return serverError("创建视频失败");
   }
 }

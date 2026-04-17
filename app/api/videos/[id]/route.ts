@@ -1,12 +1,8 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
+import { isAdminUser, unauth, forbidden, notFound, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-
-// 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
 
 // GET: 获取单个视频详情
 export async function GET(
@@ -24,9 +20,7 @@ export async function GET(
       video = await db.collection("videos").findOne({ _id: id as never });
     }
 
-    if (!video) {
-      return NextResponse.json({ error: "视频不存在" }, { status: 404 });
-    }
+    if (!video) return notFound("视频不存在");
 
     // 增加浏览次数
     try {
@@ -44,10 +38,7 @@ export async function GET(
     return NextResponse.json(video);
   } catch (error) {
     console.error("获取视频详情失败:", error);
-    return NextResponse.json(
-      { error: "获取视频详情失败" },
-      { status: 500 }
-    );
+    return serverError("获取视频详情失败");
   }
 }
 
@@ -57,13 +48,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user) {
-    return NextResponse.json({ error: "未登录" }, { status: 401 });
-  }
-
-  if (!isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限修改视频" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { id } = await params;
@@ -77,11 +63,9 @@ export async function PUT(
       video = await db.collection("videos").findOne({ _id: id as never });
     }
 
-    if (!video) {
-      return NextResponse.json({ error: "视频不存在" }, { status: 404 });
-    }
+    if (!video) return notFound("视频不存在");
 
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
     };
 
@@ -111,10 +95,7 @@ export async function PUT(
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("更新视频失败:", error);
-    return NextResponse.json(
-      { error: "更新视频失败" },
-      { status: 500 }
-    );
+    return serverError("更新视频失败");
   }
 }
 
@@ -124,13 +105,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user) {
-    return NextResponse.json({ error: "未登录" }, { status: 401 });
-  }
-
-  if (!isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限删除视频" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { id } = await params;
@@ -143,9 +119,7 @@ export async function DELETE(
       video = await db.collection("videos").findOne({ _id: id as never });
     }
 
-    if (!video) {
-      return NextResponse.json({ error: "视频不存在" }, { status: 404 });
-    }
+    if (!video) return notFound("视频不存在");
 
     try {
       await db.collection("videos").deleteOne({ _id: new ObjectId(id) });
@@ -159,9 +133,6 @@ export async function DELETE(
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("删除视频失败:", error);
-    return NextResponse.json(
-      { error: "删除视频失败" },
-      { status: 500 }
-    );
+    return serverError("删除视频失败");
   }
 }

@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
 import { detectSensitiveWords } from "@/lib/sensitive";
+import { unauth, badRequest, serverError, tryParseObjectId } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 
@@ -18,54 +19,34 @@ function tryParseObjectId(id: string): ObjectId | null {
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const postId = searchParams.get("postId");
-
-    if (!postId) {
-      return NextResponse.json(
-        { error: "postId 参数缺失" },
-        { status: 400 }
-      );
-    }
+    const postId = request.nextUrl.searchParams.get("postId");
+    if (!postId) return badRequest("postId 参数缺失");
 
     const db = await connectDB();
-    const repliesCollection = db.collection("replies");
-
     // 不显示被拒绝的回复
-    const replies = await repliesCollection
+    const replies = await db
+      .collection("replies")
       .find({ postId, status: { $ne: "rejected" } })
       .sort({ createdAt: -1 })
       .toArray();
 
     return NextResponse.json(replies);
-  } catch (error) {
-    return NextResponse.json(
-      { error: "获取回复失败" },
-      { status: 500 }
-    );
+  } catch {
+    return serverError("获取回复失败");
   }
 }
 
 export async function POST(request: NextRequest) {
   const user = getUserFromRequest(request);
-  if (!user) {
-    return NextResponse.json({ error: "未登录" }, { status: 401 });
-  }
+  if (!user) return unauth();
 
   try {
     const body = await request.json();
-    const { postId, content, author } = body;
+    const { postId, content } = body;
 
-    if (!postId || !content) {
-      return NextResponse.json(
-        { error: "缺少必要字段" },
-        { status: 400 }
-      );
-    }
+    if (!postId || !content) return badRequest("缺少必要字段");
 
     const db = await connectDB();
-    const repliesCollection = db.collection("replies");
-    const postsCollection = db.collection("posts");
 
     // 检测敏感词
     const sensitiveResult = await detectSensitiveWords(content);
@@ -82,38 +63,50 @@ export async function POST(request: NextRequest) {
     const reply = {
       postId,
       content,
-      author: author || "匿名用户",
+      // Author is always derived from the verified JWT token
+      author: user.username,
+      authorId: user.userId,
       status: "approved",
       createdAt: new Date(),
     };
 
-    const result = await repliesCollection.insertOne(reply);
+    const result = await db.collection("replies").insertOne(reply);
 
-    // 更新帖子的回复数
-    // Try ObjectId first, then fallback to string _id
-    const objectId = tryParseObjectId(postId);
-    let updateResult = { matchedCount: 0 };
-    if (objectId) {
-      updateResult = await postsCollection.updateOne(
-        { _id: objectId },
-        { $inc: { replies: 1 } }
-      );
+    if (sensitiveResult.found) {
+      await createModerationRecord({
+        contentType: "reply",
+        contentId: replyId,
+        author: user.username,
+        authorId: user.userId,
+        content,
+        sensitiveWords: sensitiveResult.words,
+        status: "pending",
+      });
     }
-    if (updateResult.matchedCount === 0) {
-      await postsCollection.updateOne(
-        { _id: postId } as any,
-        { $inc: { replies: 1 } }
-      );
+
+    // 只有审核通过的回复才计入回复数
+    // Use tryParseObjectId to correctly match MongoDB ObjectId _id
+    if (replyStatus === "approved") {
+      const objectId = tryParseObjectId(postId);
+      if (objectId) {
+        await db.collection("posts").updateOne(
+          { _id: objectId },
+          { $inc: { replies: 1 } }
+        );
+      } else {
+        // Fallback for local-db string IDs
+        await db.collection("posts").updateOne(
+          { _id: postId } as Record<string, unknown>,
+          { $inc: { replies: 1 } }
+        );
+      }
     }
 
     return NextResponse.json(
       { _id: result.insertedId, ...reply },
       { status: 201 }
     );
-  } catch (error) {
-    return NextResponse.json(
-      { error: "创建回复失败" },
-      { status: 500 }
-    );
+  } catch {
+    return serverError("创建回复失败");
   }
 }

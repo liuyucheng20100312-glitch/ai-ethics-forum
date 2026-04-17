@@ -1,31 +1,24 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
 import { updateModerationStatus, ModerationStatus } from "@/lib/sensitive";
+import { isAdminUser, unauth, forbidden, notFound, badRequest, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
 
-// 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
-
-// GET: 获取单个审核记录详情
+// GET: 获取单个审核记录详情（仅管理员）
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限访问" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { id } = await params;
     const { db } = await connectToDatabase();
 
     const record = await db.collection("moderation_records").findOne({ contentId: id });
-    if (!record) {
-      return NextResponse.json({ error: "记录不存在" }, { status: 404 });
-    }
+    if (!record) return notFound("记录不存在");
 
     // 根据内容类型获取原始内容
     let originalContent = null;
@@ -47,7 +40,7 @@ export async function GET(
     return NextResponse.json({ ...record, originalContent });
   } catch (error) {
     console.error("获取审核详情失败:", error);
-    return NextResponse.json({ error: "获取审核详情失败" }, { status: 500 });
+    return serverError("获取审核详情失败");
   }
 }
 
@@ -57,31 +50,23 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限操作" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { id } = await params;
     const { db } = await connectToDatabase();
-    const body = await request.json();
-
-    const { status, reviewNote } = body;
+    const { status, reviewNote } = await request.json();
 
     if (!["approved", "rejected"].includes(status)) {
-      return NextResponse.json({ error: "无效的审核状态" }, { status: 400 });
+      return badRequest("无效的审核状态");
     }
 
-    // 获取审核记录
     const record = await db.collection("moderation_records").findOne({ contentId: id });
-    if (!record) {
-      return NextResponse.json({ error: "记录不存在" }, { status: 404 });
-    }
+    if (!record) return notFound("记录不存在");
 
-    // 更新审核记录
     await updateModerationStatus(id, status as ModerationStatus, user.username, reviewNote);
 
-    // 如果拒绝，将原内容标记为已拒绝
     if (status === "rejected") {
       switch (record.contentType) {
         case "post":
@@ -110,7 +95,7 @@ export async function PUT(
           break;
       }
     } else {
-      // 如果通过，确保内容可见
+      // 审核通过 — 确保内容可见
       switch (record.contentType) {
         case "post":
           await db.collection("posts").updateOne(
@@ -136,7 +121,7 @@ export async function PUT(
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("审核操作失败:", error);
-    return NextResponse.json({ error: "审核操作失败" }, { status: 500 });
+    return serverError("审核操作失败");
   }
 }
 
@@ -146,21 +131,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.userId)) {
-    return NextResponse.json({ error: "无权限操作" }, { status: 403 });
-  }
+  if (!user) return unauth();
+  if (!isAdminUser(user.userId)) return forbidden();
 
   try {
     const { id } = await params;
     const { db } = await connectToDatabase();
 
-    // 获取审核记录
     const record = await db.collection("moderation_records").findOne({ contentId: id });
-    if (!record) {
-      return NextResponse.json({ error: "记录不存在" }, { status: 404 });
-    }
+    if (!record) return notFound("记录不存在");
 
-    // 删除原始内容
     switch (record.contentType) {
       case "post":
         await db.collection("posts").deleteOne({ _id: record.contentId });
@@ -176,12 +156,11 @@ export async function DELETE(
         break;
     }
 
-    // 删除审核记录
     await db.collection("moderation_records").deleteOne({ contentId: id });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("删除内容失败:", error);
-    return NextResponse.json({ error: "删除内容失败" }, { status: 500 });
+    return serverError("删除内容失败");
   }
 }
