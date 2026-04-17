@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -21,6 +21,7 @@ interface Post {
 
 export default function PostDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const { user, authFetch, isGuest } = useAuth();
   const { t, language } = useLanguage();
   const postId = params.id as string;
@@ -34,6 +35,7 @@ export default function PostDetailPage() {
   const [likeLoading, setLikeLoading] = useState(false);
   const [followed, setFollowed] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   // showEn = true means display English version (only when available)
   const [showEn, setShowEn] = useState(false);
 
@@ -148,9 +150,8 @@ export default function PostDetailPage() {
     e.preventDefault();
     if (!replyText.trim()) return;
     try {
-      const response = await fetch("/api/replies", {
+      const response = await authFetch("/api/replies", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ postId, content: replyText, author: user?.username ?? "匿名用户" }),
       });
       if (!response.ok) throw new Error(t("replyFailed"));
@@ -159,6 +160,31 @@ export default function PostDetailPage() {
       fetchPost();
     } catch { alert(t("replyFailed")); }
   };
+
+  async function handleDelete() {
+    if (!post || deleteLoading) return;
+    const confirmMsg = language === "zh"
+      ? "确定要删除这篇帖子吗？此操作不可恢复。"
+      : "Are you sure you want to delete this post? This action cannot be undone.";
+    if (!confirm(confirmMsg)) return;
+
+    setDeleteLoading(true);
+    try {
+      const response = await authFetch(`/api/posts/${postId}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "删除失败");
+      }
+      router.push("/forum");
+    } catch (error: any) {
+      alert(error.message || (language === "zh" ? "删除失败" : "Delete failed"));
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
+  // 判断是否有删除权限
+  const canDelete = !isGuest && post && (user?.username === post.author || user?.isAdmin);
 
   if (loading) return <p className="text-center text-gray-500">{t("loading")}</p>;
   if (fetchError === "notfound") return (
@@ -254,7 +280,7 @@ export default function PostDetailPage() {
           </>
         )}
 
-        <div className="mt-6 flex items-center gap-3">
+        <div className="mt-6 flex items-center gap-3 flex-wrap">
           {isGuest ? (
             <span className="text-sm text-gray-400 italic">{t("guestCannotLike")} &nbsp;·&nbsp; {t("guestCannotFollow")}</span>
           ) : (
@@ -269,6 +295,16 @@ export default function PostDetailPage() {
           >
             {liked ? "❤️" : "🤍"} {liked ? t("liked") : t("like")}
           </button>
+          )}
+          {/* 删除按钮 */}
+          {canDelete && (
+            <button
+              onClick={handleDelete}
+              disabled={deleteLoading}
+              className="flex items-center gap-2 px-5 py-2 rounded-full border text-sm font-medium transition-all disabled:opacity-50 bg-white dark:bg-gray-700 border-gray-300 text-gray-500 hover:border-red-300 hover:text-red-500"
+            >
+              🗑️ {language === "zh" ? "删除帖子" : "Delete Post"}
+            </button>
           )}
         </div>
       </div>

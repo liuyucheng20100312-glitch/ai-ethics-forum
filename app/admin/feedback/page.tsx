@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/app/context/AuthContext";
 import { useLanguage } from "@/app/context/LanguageContext";
+import { isAdminUserId } from "@/lib/admin-auth";
 
 interface Feedback {
   _id: string;
@@ -29,10 +30,6 @@ const STATUS_LABELS: Record<string, { zh: string; en: string; color: string }> =
 };
 
 // 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
-
 export default function AdminFeedbackPage() {
   const { user, authFetch } = useAuth();
   const { language } = useLanguage();
@@ -40,7 +37,7 @@ export default function AdminFeedbackPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
 
-  const isUserAdmin = isAdmin(user?.userId);
+  const isUserAdmin = isAdminUserId(user?.userId);
 
   useEffect(() => {
     if (isUserAdmin) fetchFeedbacks();

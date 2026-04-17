@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { isAdminUserId } from "@/lib/admin-auth";
 
 interface Post {
   _id: string;
@@ -30,10 +31,6 @@ interface Stats {
 }
 
 // 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
-
 const STATUS_LABELS: Record<string, { zh: string; en: string; color: string }> = {
   approved: { zh: "已上架", en: "Published", color: "bg-green-100 text-green-700 border border-green-200" },
   pending: { zh: "待审核", en: "Pending", color: "bg-yellow-100 text-yellow-700 border border-yellow-200" },
@@ -64,7 +61,7 @@ export default function PostsAdminPage() {
   const [processing, setProcessing] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
 
-  const isUserAdmin = isAdmin(user?.userId);
+  const isUserAdmin = isAdminUserId(user?.userId);
 
   useEffect(() => {
     if (isUserAdmin) fetchPosts();

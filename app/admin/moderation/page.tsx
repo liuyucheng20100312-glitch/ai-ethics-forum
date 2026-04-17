@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { isAdminUserId } from "@/lib/admin-auth";
 
 interface ModerationRecord {
   _id: string;
@@ -20,10 +21,6 @@ interface ModerationRecord {
 }
 
 // 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
-
 const CONTENT_TYPE_LABELS: Record<string, { zh: string; en: string }> = {
   post: { zh: "帖子", en: "Post" },
   reply: { zh: "回复", en: "Reply" },
@@ -52,7 +49,7 @@ export default function ModerationPage() {
   const [reviewNote, setReviewNote] = useState("");
   const [processing, setProcessing] = useState(false);
 
-  const isUserAdmin = isAdmin(user?.userId);
+  const isUserAdmin = isAdminUserId(user?.userId);
 
   useEffect(() => {
     if (isUserAdmin) fetchRecords();

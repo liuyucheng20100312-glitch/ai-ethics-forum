@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { isAdminUserId } from "@/lib/admin-auth";
 
 interface SensitiveWord {
   _id: string;
@@ -15,10 +16,6 @@ interface SensitiveWord {
 }
 
 // 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
-
 const CATEGORIES = [
   { value: "politics", label: "政治敏感", labelEn: "Politics" },
   { value: "violence", label: "暴力恐怖", labelEn: "Violence" },
@@ -60,7 +57,7 @@ export default function SensitiveWordsPage() {
   const [importing, setImporting] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
-  const isUserAdmin = isAdmin(user?.userId);
+  const isUserAdmin = isAdminUserId(user?.userId);
 
   useEffect(() => {
     if (isUserAdmin) fetchWords();

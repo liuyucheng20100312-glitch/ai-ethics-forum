@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { verifyCode } from "@/lib/sms";
 
 const OFFLINE_ADMIN_USERNAME = "admin";
-const OFFLINE_ADMIN_PASSWORD = "admin123456";
+const OFFLINE_ADMIN_PASSWORD = "c2206GVZNT19@";
 const GUEST_USERNAME = "guest";
 
 export async function POST(request: NextRequest) {

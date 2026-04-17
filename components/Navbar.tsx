@@ -4,12 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { useLanguage } from "@/app/context/LanguageContext";
+import { isAdminUserId } from "@/lib/admin-auth";
 
 // 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
-
 const navItemsZh = [
   { label: "首页",     labelEn: "Home",     href: "/" },
   { label: "视频专区", labelEn: "Videos",   href: "/videos" },
@@ -28,7 +25,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const { user } = useAuth();
   const { language } = useLanguage();
-  const isUserAdmin = isAdmin(user?.userId);
+  const isUserAdmin = isAdminUserId(user?.userId);
 
   return (
     <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20 shadow-sm transition-colors">

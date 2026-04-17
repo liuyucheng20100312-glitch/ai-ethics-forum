@@ -1,6 +1,6 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
-import { detectSensitiveWords, createModerationRecord } from "@/lib/sensitive";
+import { detectSensitiveWords } from "@/lib/sensitive";
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 
@@ -77,8 +77,14 @@ export async function POST(request: NextRequest) {
     const textToCheck = `${title} ${content}`;
     const sensitiveResult = await detectSensitiveWords(textToCheck);
 
-    // 决定审核状态：有敏感词则待审核，否则直接通过
-    const postStatus = sensitiveResult.found ? "pending" : "approved";
+    // 如果检测到敏感词，直接拒绝提交，提示用户修改
+    if (sensitiveResult.found) {
+      const sensitiveWordList = sensitiveResult.words.map(w => w.word).join("、");
+      return NextResponse.json(
+        { error: `您的帖子包含敏感词，请修改后重新提交。敏感词：${sensitiveWordList}` },
+        { status: 400 }
+      );
+    }
 
     const newPost = {
       title,
@@ -89,26 +95,12 @@ export async function POST(request: NextRequest) {
       contentEn: contentEn || "",
       linkUrl: validatedLinkUrl || "",
       replies: 0,
-      status: postStatus,
+      status: "approved",
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     const result = await db.collection("posts").insertOne(newPost);
-    const postId = result.insertedId.toString();
-
-    // 如果有敏感词，创建审核记录
-    if (sensitiveResult.found && user) {
-      await createModerationRecord({
-        contentType: "post",
-        contentId: postId,
-        author: author,
-        authorId: user.userId,
-        content: textToCheck,
-        sensitiveWords: sensitiveResult.words,
-        status: "pending",
-      });
-    }
 
     return NextResponse.json(
       { ...newPost, _id: result.insertedId },

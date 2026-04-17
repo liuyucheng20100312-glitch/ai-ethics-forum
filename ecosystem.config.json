@@ -10,7 +10,9 @@
     },
     {
       "name": "ai-post-scheduler",
-      "script": "npx tsx scripts/scheduler.ts",
+      "script": "node_modules/tsx/dist/cli.cjs",
+      "args": "scripts/ai-post-scheduler.ts",
+      "interpreter": "node",
       "env": {
         "NODE_ENV": "production"
       },

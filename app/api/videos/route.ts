@@ -1,6 +1,6 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
-import { detectSensitiveWords, createModerationRecord } from "@/lib/sensitive";
+import { detectSensitiveWords } from "@/lib/sensitive";
 import { NextRequest, NextResponse } from "next/server";
 
 // 检查是否是管理员
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const { db } = await connectToDatabase();
     const body = await request.json();
 
-    const { title, titleEn, uploader, uploaderEn, coverImage, videoUrl, content, contentEn } = body;
+    const { title, titleEn, uploader, uploaderEn, coverImage, videoUrl, content, contentEn, forcePublish } = body;
 
     // 验证必填字段
     if (!title || !uploader || !coverImage || !videoUrl || !content) {
@@ -68,8 +68,18 @@ export async function POST(request: NextRequest) {
     const textToCheck = `${title} ${uploader} ${content}`;
     const sensitiveResult = await detectSensitiveWords(textToCheck);
 
-    // 决定审核状态：有敏感词则待审核（隐藏），否则直接上架
-    const isVisible = !sensitiveResult.found;
+    // 如果检测到敏感词，提示管理员
+    if (sensitiveResult.found && !forcePublish) {
+      const sensitiveWordList = sensitiveResult.words.map(w => w.word).join("、");
+      return NextResponse.json(
+        {
+          error: `视频包含敏感词：${sensitiveWordList}`,
+          sensitiveWords: sensitiveResult.words,
+          requiresConfirmation: true
+        },
+        { status: 400 }
+      );
+    }
 
     const newVideo = {
       title,
@@ -82,27 +92,13 @@ export async function POST(request: NextRequest) {
       contentEn: contentEn || "",
       author: user.username,
       authorId: user.userId,
-      isVisible,           // 是否上架
-      viewCount: 0,        // 浏览次数
+      isVisible: true,         // 直接上架
+      viewCount: 0,            // 浏览次数
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     const result = await db.collection("videos").insertOne(newVideo);
-    const videoId = result.insertedId.toString();
-
-    // 如果有敏感词，创建审核记录
-    if (sensitiveResult.found) {
-      await createModerationRecord({
-        contentType: "video",
-        contentId: videoId,
-        author: user.username,
-        authorId: user.userId,
-        content: textToCheck,
-        sensitiveWords: sensitiveResult.words,
-        status: "pending",
-      });
-    }
 
     return NextResponse.json(
       { ...newVideo, _id: result.insertedId },

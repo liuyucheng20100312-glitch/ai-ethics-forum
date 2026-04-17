@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
+import { isAdminUserId } from "@/lib/admin-auth";
 
 type EpisodeForm = {
   title: string;
@@ -47,10 +48,6 @@ const EMPTY_FORM: AlbumForm = {
   episodes: [{ ...EMPTY_EPISODE }],
 };
 
-function isAdmin(userId: string | undefined) {
-  return userId === "offline_admin";
-}
-
 export default function AdminPodcastPage() {
   const { user, authFetch } = useAuth();
   const router = useRouter();
@@ -68,7 +65,7 @@ export default function AdminPodcastPage() {
 
   useEffect(() => {
     if (!user) return;
-    if (!isAdmin(user.userId)) return;
+    if (!isAdminUserId(user.userId)) return;
     fetchAlbums();
   }, [user]);
 
@@ -198,7 +195,7 @@ export default function AdminPodcastPage() {
     }
   }
 
-  if (!isAdmin(user?.userId)) {
+  if (!isAdminUserId(user?.userId)) {
     return (
       <div className="text-center py-20">
         <p className="text-gray-500 mb-4">无权限访问播客专辑管理</p>

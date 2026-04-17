@@ -1,6 +1,6 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
-import { detectSensitiveWords, createModerationRecord } from "@/lib/sensitive";
+import { detectSensitiveWords } from "@/lib/sensitive";
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 
@@ -71,8 +71,14 @@ export async function POST(request: NextRequest) {
     const textToCheck = `${title} ${proDescription} ${conDescription}`;
     const sensitiveResult = await detectSensitiveWords(textToCheck);
 
-    // 决定审核状态：有敏感词则待审核（隐藏），否则直接上架
-    const isVisible = !sensitiveResult.found;
+    // 如果检测到敏感词，直接拒绝提交，提示用户修改
+    if (sensitiveResult.found) {
+      const sensitiveWordList = sensitiveResult.words.map(w => w.word).join("、");
+      return NextResponse.json(
+        { error: `您的投票包含敏感词，请修改后重新提交。敏感词：${sensitiveWordList}` },
+        { status: 400 }
+      );
+    }
 
     const newVote = {
       title,
@@ -84,7 +90,7 @@ export async function POST(request: NextRequest) {
       author: user.username,
       authorId: user.userId,
       status: "active",    // active: 进行中, closed: 已结束
-      isVisible,           // 是否上架（有敏感词则默认下架待审核）
+      isVisible: true,     // 直接上架
       proCount: 0,         // 正方票数
       conCount: 0,         // 反方票数
       totalVoters: 0,      // 总投票人数
@@ -93,20 +99,6 @@ export async function POST(request: NextRequest) {
     };
 
     const result = await db.collection("votes").insertOne(newVote);
-    const voteId = result.insertedId.toString();
-
-    // 如果有敏感词，创建审核记录
-    if (sensitiveResult.found) {
-      await createModerationRecord({
-        contentType: "vote",
-        contentId: voteId,
-        author: user.username,
-        authorId: user.userId,
-        content: textToCheck,
-        sensitiveWords: sensitiveResult.words,
-        status: "pending",
-      });
-    }
 
     return NextResponse.json(
       { ...newVote, _id: result.insertedId },

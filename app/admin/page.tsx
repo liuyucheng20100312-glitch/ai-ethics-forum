@@ -1,19 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { isAdminUserId } from "@/lib/admin-auth";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 
 // 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
-
 export default function AdminPage() {
   const { user } = useAuth();
   const { t, language } = useLanguage();
 
-  const isUserAdmin = isAdmin(user?.userId);
+  const isUserAdmin = isAdminUserId(user?.userId);
 
   if (!isUserAdmin) {
     return (
@@ -25,6 +22,16 @@ export default function AdminPage() {
   }
 
   const menuItems = [
+    {
+      href: "/admin/study-assistant",
+      icon: "🧭",
+      title: language === "zh" ? "IB学习助手" : "IB Study Assistant",
+      desc:
+        language === "zh"
+          ? "上传试卷、分析弱项、生成学习计划、推荐资料并监督执行"
+          : "Upload papers, diagnose weak points, build plans, recommend materials, and supervise execution",
+      color: "from-emerald-600 to-teal-500",
+    },
     {
       href: "/admin/podcast",
       icon: "🎧",

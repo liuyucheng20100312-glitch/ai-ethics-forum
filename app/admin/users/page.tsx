@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { isAdminUserId } from "@/lib/admin-auth";
 
 interface User {
   id: string;
@@ -32,10 +33,6 @@ interface Pagination {
 }
 
 // 检查是否是管理员
-function isAdmin(userId: string | undefined): boolean {
-  return userId === "offline_admin";
-}
-
 export default function UsersAdminPage() {
   const { user, authFetch } = useAuth();
   const { language } = useLanguage();
@@ -61,7 +58,7 @@ export default function UsersAdminPage() {
     disabled: false,
   });
 
-  const isUserAdmin = isAdmin(user?.userId);
+  const isUserAdmin = isAdminUserId(user?.userId);
 
   useEffect(() => {
     if (isUserAdmin) fetchUsers();

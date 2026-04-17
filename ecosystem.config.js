@@ -2,6 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'ai-ethics-forum',
+      cwd: __dirname,
       // 直接用 Node.js 执行 Next.js 生产启动脚本（彻底绕开 CMD 窗口）
       script: 'node_modules/next/dist/bin/next',
       args: 'start',
@@ -15,8 +16,10 @@ module.exports = {
     {
       name: 'ai-post-scheduler',
       // 每周一自动生成AI帖子的定时任务
-      script: 'npx',
-      args: 'tsx scripts/scheduler.ts',
+      cwd: __dirname,
+      script: 'node_modules/tsx/dist/cli.cjs',
+      args: 'scripts/ai-post-scheduler.ts',
+      interpreter: 'node',
       env: {
         NODE_ENV: 'production'
       },
