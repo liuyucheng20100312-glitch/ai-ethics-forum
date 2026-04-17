@@ -3,19 +3,6 @@ import { getUserFromRequest } from "@/lib/auth";
 import { detectSensitiveWords } from "@/lib/sensitive";
 import { unauth, badRequest, serverError, tryParseObjectId } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
-
-// Helper: try to create ObjectId, return null if invalid format
-function tryParseObjectId(id: string): ObjectId | null {
-  try {
-    if (/^[a-fA-F0-9]{24}$/.test(id)) {
-      return new ObjectId(id);
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -72,34 +59,20 @@ export async function POST(request: NextRequest) {
 
     const result = await db.collection("replies").insertOne(reply);
 
-    if (sensitiveResult.found) {
-      await createModerationRecord({
-        contentType: "reply",
-        contentId: replyId,
-        author: user.username,
-        authorId: user.userId,
-        content,
-        sensitiveWords: sensitiveResult.words,
-        status: "pending",
-      });
-    }
-
     // 只有审核通过的回复才计入回复数
     // Use tryParseObjectId to correctly match MongoDB ObjectId _id
-    if (replyStatus === "approved") {
-      const objectId = tryParseObjectId(postId);
-      if (objectId) {
-        await db.collection("posts").updateOne(
-          { _id: objectId },
-          { $inc: { replies: 1 } }
-        );
-      } else {
-        // Fallback for local-db string IDs
-        await db.collection("posts").updateOne(
-          { _id: postId } as Record<string, unknown>,
-          { $inc: { replies: 1 } }
-        );
-      }
+    const objectId = tryParseObjectId(postId);
+    if (objectId) {
+      await db.collection("posts").updateOne(
+        { _id: objectId },
+        { $inc: { replies: 1 } }
+      );
+    } else {
+      // Fallback for local-db string IDs
+      await db.collection("posts").updateOne(
+        { _id: postId } as Record<string, unknown>,
+        { $inc: { replies: 1 } }
+      );
     }
 
     return NextResponse.json(

@@ -1,6 +1,6 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
-import { detectSensitiveWords } from "@/lib/sensitive";
+import { createModerationRecord, detectSensitiveWords } from "@/lib/sensitive";
 import { isAdminUser, unauth, forbidden, badRequest, serverError } from "@/lib/api-helpers";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
     };
 
     const result = await db.collection("videos").insertOne(newVideo);
+    const videoId = result.insertedId.toString();
 
     if (sensitiveResult.found) {
       await createModerationRecord({

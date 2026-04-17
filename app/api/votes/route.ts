@@ -86,18 +86,6 @@ export async function POST(request: NextRequest) {
 
     const result = await db.collection("votes").insertOne(newVote);
 
-    if (sensitiveResult.found) {
-      await createModerationRecord({
-        contentType: "vote",
-        contentId: voteId,
-        author: user.username,
-        authorId: user.userId,
-        content: textToCheck,
-        sensitiveWords: sensitiveResult.words,
-        status: "pending",
-      });
-    }
-
     return NextResponse.json(
       { ...newVote, _id: result.insertedId },
       { status: 201 }
