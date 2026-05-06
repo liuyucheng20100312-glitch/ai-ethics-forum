@@ -23,6 +23,7 @@ export async function GET(
       username: user.username,
       bio: user.bio || "",
       avatar: user.avatar || "",
+      backgroundImage: user.backgroundImage || "",
       verified: user.verified || false,
       realName: user.realName,
       classId: user.classId,

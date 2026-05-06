@@ -130,6 +130,8 @@ Notes for legacy imports:
 - `--no-require-markscheme` is usually necessary, otherwise the importer may find papers but still produce `materials: 0`.
 - These older sources are more useful for retrieval breadth than for strict score-diagnosis workflows, because answer keys and markschemes may be incomplete.
 - If `archive-scan.json` contains a stale or mis-encoded path for an old source, `ib:import-archive-root` now falls back to rediscovering the real folder under the scan root.
+- Real validation result: `2001-2008` is a mixed legacy block, not a pure paper-only block. In the current local scan it still contains some valid paper + markscheme pairs.
+- The helper still keeps legacy imports in tolerant mode because coverage is more important than strict pairing for this period.
 
 ## 2015-2025 Status
 
@@ -173,6 +175,23 @@ data/ib/source/<source-slug>/**
 - Material chunk vector IDs are stable, so re-importing the same material updates the same MongoDB chunk and Zilliz vector instead of creating duplicates.
 - If a material was imported before stable chunk IDs existed, re-import that same source once to clean up its old random-vector duplicates.
 - PDF text extraction can be noisy for scanned or formula-heavy papers.
+- Tencent OCR cost note: `PAST_PAPER` repair uses `QuestionSplitOCR`, while `MARK_SCHEME` repair now defaults to cheaper `GeneralBasicOCR` and only falls back to `GeneralAccurateOCR` when the extracted markscheme quality is poor.
+- You can control this with `.env.local` or `.env.ib.example`:
+  `TENCENT_MARKSCHEME_OCR_PROVIDER=general_basic`
+  `TENCENT_MARKSCHEME_FALLBACK_PROVIDER=general_accurate`
+- `ib:repair-materials` now supports automatic resume. It writes a progress file under `data/ib/reports/repair-progress/` and skips completed `materialId`s on the next run.
+- Resume also checks MongoDB for materials already repaired with the same provider and a `good`/`warn` quality level, so older runs that happened before the progress file existed can still be skipped.
+- For Tencent OCR repair, resume only treats a material as completed when the fallback actually produced OCR text/pages/blocks. Older rows that were incorrectly marked as `pdf_parse_tencent_edu_ocr` after falling back to plain `pdf-parse` text will be repaired again.
+- Markscheme and past-paper imports now prefer question-level chunks (`Q1`, `Q2`, etc.) before falling back to length-based chunks. This improves retrieval precision for prompts such as “Paper 1 Q3 markscheme”.
+- The default progress file is shared by the same manifest/provider/filter set; `--offset` and `--limit` no longer create a separate progress file.
+- To continue a partially completed repair batch from a known point, run once with `--offset ...`; after that, rerunning the same command will keep resuming automatically from the remaining materials. If the repaired materials were already written to MongoDB, the offset is optional.
+- If you intentionally want to ignore prior progress and rerun the whole selected batch, add `--no-resume`.
+- If you want to clear saved repair progress for a batch and rebuild it, add `--reset-progress`.
+- The study assistant recommendation layer now has a separate student-facing quality gate. By default it only recommends `2015+` IB chunks with `good`/`warn` extraction quality and excludes materials marked `reviewRequired`.
+- Configure this with `.env.local`:
+  `STUDY_ASSISTANT_RECOMMENDATION_MIN_YEAR=2015`
+  `STUDY_ASSISTANT_RECOMMENDATION_ALLOW_REVIEW_REQUIRED=false`
+- Older materials such as `2001-2014` can stay in MongoDB/Zilliz for future repair or admin review, but they will not be pushed into student plans unless you lower the year gate or explicitly allow review-required materials.
 - Question-level parsing and stronger knowledge-point auto-linking should be layered on top after the full-paper RAG baseline is stable.
 - Keep using dry run first when adding a new year. It is cheap, quick, and catches naming-layout surprises before embedding costs happen.
 
@@ -180,12 +199,22 @@ data/ib/source/<source-slug>/**
 
 Use this helper when importing Mathematics, Physics, and Chemistry before 2015. It processes sources in small year batches, which is safer than one long command.
 
-Current local scan note: `may2011` to `nov2013` currently show papers but no complete markscheme pairings, so the helper imports those batches with `--no-require-markscheme`. `may2014` and `nov2014` have normal paper/markscheme pairs and stay in strict paired mode.
+Current validated rule note:
+
+- `2011-2013`: tolerant mode, do not require markscheme pairing.
+- `2014`: strict paired mode, require paper + markscheme.
+- `2001-2008`: mixed markscheme coverage exists, but the helper still uses tolerant mode.
 
 First refresh the scan file if your local `D:\wendang\IB` folder changed:
 
 ```bash
 npm run ib:scan-archives -- --root "D:\wendang\IB" --out data/ib/archive-manifests/archive-scan.json
+```
+
+If you want to validate representative import rules before running the helper:
+
+```bash
+npm run ib:validate-import-rules
 ```
 
 Dry run the normal 2011-2014 sources:
@@ -198,6 +227,12 @@ Import the normal 2011-2014 sources:
 
 ```bash
 npm run ib:import-pre2015-stem -- -Mode Import
+```
+
+Import with a fresh representative rule validation first:
+
+```bash
+npm run ib:import-pre2015-stem -- -Mode Import -ValidateRules
 ```
 
 Import and run retrieval checks after each batch:
@@ -229,6 +264,18 @@ npm run ib:import-pre2015-stem -- -Mode Import -OnlyLegacy
 If `archive-scan.json` still contains an old source that no longer exists locally, the importer now skips that missing source and continues with the valid folders. Re-run `ib:scan-archives` whenever you rename, delete, or move local IB folders.
 
 Legacy `2001-2008` folders use repeated file names such as `Physics HL P1.pdf` under different year folders. The manifest builder therefore uses the full relative path for deduping and pairing, and it infers `year` / `session` from paths such as `2003_Nov/...` instead of the top-level source slug.
+
+Representative rule validation can also be scoped:
+
+```bash
+npm run ib:validate-import-rules -- --cases legacy-2001-2008,paper-only-2011,markscheme-2014,standard-2015,session-bundle-2021
+```
+
+And if you want a sample end-to-end write into MongoDB + Zilliz:
+
+```bash
+npm run ib:validate-import-rules -- --cases legacy-2001-2008,paper-only-2011,markscheme-2014 --import-sample
+```
 
 Equivalent manual batches:
 

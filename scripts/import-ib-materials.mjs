@@ -3,30 +3,42 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { MongoClient } from "mongodb";
 import { loadEnvLocal } from "./lib/env.mjs";
+import {
+  approximateTokenCount,
+  createStableChunkId,
+  extractTextFromMaterial,
+  splitIntoChunks,
+} from "./lib/ib-material-text.mjs";
+import { describeMaterialPathResolution, resolveExistingMaterialPath } from "./lib/ib-paths.mjs";
 
 loadEnvLocal();
 
 const IB_MATERIALS_COLLECTION = "ib_materials";
 const IB_MATERIAL_CHUNKS_COLLECTION = "ib_material_chunks";
 
-function splitIntoChunks(text, chunkSize, overlapSize) {
-  const chunks = [];
-  let cursor = 0;
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const options = {
+    manifest: "",
+    progressFile: "",
+  };
 
-  while (cursor < text.length) {
-    const end = Math.min(text.length, cursor + chunkSize);
-    chunks.push({
-      content: text.slice(cursor, end).trim(),
-      startPos: cursor,
-      endPos: end,
-    });
-    if (end >= text.length) {
-      break;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (!options.manifest && !arg.startsWith("--")) {
+      options.manifest = arg;
+      continue;
     }
-    cursor = Math.max(end - overlapSize, cursor + 1);
+    if (arg === "--manifest" && args[index + 1]) {
+      options.manifest = args[index + 1];
+      index += 1;
+    } else if (arg === "--progress-file" && args[index + 1]) {
+      options.progressFile = args[index + 1];
+      index += 1;
+    }
   }
 
-  return chunks.filter((item) => item.content.length > 0);
+  return options;
 }
 
 async function loadOptionalModule(name) {
@@ -35,65 +47,6 @@ async function loadOptionalModule(name) {
   } catch {
     throw new Error(`Missing dependency "${name}". Install it before running this script.`);
   }
-}
-
-async function extractText(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-
-  if (ext === ".html" || ext === ".htm") {
-    const html = await fs.readFile(filePath, "utf8");
-    return html
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/g, " ")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  if (ext === ".txt" || ext === ".md") {
-    return await fs.readFile(filePath, "utf8");
-  }
-
-  if (ext === ".pdf") {
-    const pdfParseModule = await loadOptionalModule("pdf-parse");
-    const fileBuffer = await fs.readFile(filePath);
-    if (typeof pdfParseModule.default === "function") {
-      const result = await pdfParseModule.default(fileBuffer);
-      return result.text;
-    }
-    if (typeof pdfParseModule.PDFParse === "function") {
-      const parser = new pdfParseModule.PDFParse({ data: fileBuffer });
-      try {
-        const result = await parser.getText();
-        return result.text;
-      } finally {
-        await parser.destroy?.();
-      }
-    }
-    throw new Error("pdf-parse did not expose a supported parser.");
-  }
-
-  if (ext === ".docx") {
-    const mammoth = await loadOptionalModule("mammoth");
-    const result = await mammoth.extractRawText({ path: filePath });
-    return result.value;
-  }
-
-  throw new Error(`Unsupported file type: ${ext}`);
-}
-
-function approximateTokenCount(text) {
-  return Math.ceil(text.length / 4);
-}
-
-function createStableChunkId(materialId, chunkIndex) {
-  const digest = crypto.createHash("sha256").update(`${materialId}:${chunkIndex}`).digest("hex");
-  return `ibc_${digest.slice(0, 48)}`;
 }
 
 async function createEmbedding(text) {
@@ -161,7 +114,7 @@ function getZillizConfig() {
   return { address, token, collectionName };
 }
 
-function normalizeManifestItem(item, absoluteFilePath, totalTokens) {
+function normalizeManifestItem(item, absoluteFilePath, totalTokens, extraction) {
   const now = new Date().toISOString();
   const fileType =
     item.fileType || path.extname(absoluteFilePath).replace(".", "").toUpperCase() || "TXT";
@@ -180,6 +133,8 @@ function normalizeManifestItem(item, absoluteFilePath, totalTokens) {
     year: item.year || null,
     paper: item.paper || null,
     timezone: item.timezone || null,
+    localFilePath: item.localFilePath || "",
+    resolvedFilePath: absoluteFilePath,
     fileUrl: item.fileUrl || absoluteFilePath,
     fileType,
     totalTokens,
@@ -187,6 +142,7 @@ function normalizeManifestItem(item, absoluteFilePath, totalTokens) {
     sourceUrl: item.sourceUrl || "",
     tags: item.tags || [],
     topics: item.topics || [],
+    textExtraction: extraction || null,
     createdAt: now,
     updatedAt: now,
   };
@@ -231,8 +187,78 @@ async function upsertZillizVector(milvus, collectionName, data) {
   await milvus.insert(payload);
 }
 
+async function readProgressState(progressFilePath) {
+  if (!progressFilePath) {
+    return {
+      completedMaterialIds: [],
+      completedItems: [],
+    };
+  }
+
+  try {
+    const content = await fs.readFile(progressFilePath, "utf8");
+    const parsed = JSON.parse(content);
+    return {
+      completedMaterialIds: Array.isArray(parsed.completedMaterialIds) ? parsed.completedMaterialIds : [],
+      completedItems: Array.isArray(parsed.completedItems) ? parsed.completedItems : [],
+      manifestPath: parsed.manifestPath || "",
+      updatedAt: parsed.updatedAt || "",
+    };
+  } catch {
+    return {
+      completedMaterialIds: [],
+      completedItems: [],
+    };
+  }
+}
+
+async function writeProgressState(progressFilePath, state) {
+  if (!progressFilePath) {
+    return;
+  }
+
+  await fs.mkdir(path.dirname(progressFilePath), { recursive: true });
+  const tempPath = `${progressFilePath}.tmp`;
+  await fs.writeFile(tempPath, JSON.stringify(state, null, 2), "utf8");
+  await fs.rename(tempPath, progressFilePath);
+}
+
+async function markProgressCompleted(progressFilePath, state, material) {
+  if (!progressFilePath || !material?.materialId) {
+    return;
+  }
+
+  if (!state.completedMaterialIds.includes(material.materialId)) {
+    state.completedMaterialIds.push(material.materialId);
+  }
+
+  state.completedItems = (state.completedItems || []).filter(
+    (item) => item.materialId !== material.materialId
+  );
+  state.completedItems.push({
+    materialId: material.materialId,
+    title: material.title,
+    completedAt: new Date().toISOString(),
+  });
+  state.updatedAt = new Date().toISOString();
+  state.lastCompletedMaterialId = material.materialId;
+  state.lastCompletedTitle = material.title;
+
+  await writeProgressState(progressFilePath, state);
+}
+
 async function main() {
-  const manifestPath = process.argv[2] || path.join(process.cwd(), "data", "ib", "materials.template.json");
+  const options = parseArgs();
+  const manifestPath = options.manifest
+    ? path.isAbsolute(options.manifest)
+      ? options.manifest
+      : path.join(process.cwd(), options.manifest)
+    : path.join(process.cwd(), "data", "ib", "materials.template.json");
+  const progressFilePath = options.progressFile
+    ? path.isAbsolute(options.progressFile)
+      ? options.progressFile
+      : path.join(process.cwd(), options.progressFile)
+    : "";
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
   const { uri, dbName } = getMongoConfig();
   const { address, token, collectionName } = getZillizConfig();
@@ -248,20 +274,43 @@ async function main() {
 
   await safeCreateIndex(db.collection(IB_MATERIALS_COLLECTION), { materialId: 1 });
   await safeCreateIndex(db.collection(IB_MATERIALS_COLLECTION), { subjectCode: 1 });
+  await safeCreateIndex(db.collection(IB_MATERIALS_COLLECTION), { year: 1, subjectCode: 1 });
   await safeCreateIndex(db.collection(IB_MATERIAL_CHUNKS_COLLECTION), { materialId: 1 });
   await safeCreateIndex(db.collection(IB_MATERIAL_CHUNKS_COLLECTION), { milvusVectorId: 1 });
+  await safeCreateIndex(db.collection(IB_MATERIAL_CHUNKS_COLLECTION), { subjectCode: 1, year: 1 });
 
   const materials = manifest.materials || [];
-  console.log(`Preparing to import ${materials.length} IB materials.`);
+  const progressState = await readProgressState(progressFilePath);
+  progressState.manifestPath = manifestPath;
+  progressState.progressFilePath = progressFilePath || "";
+  const completedMaterialIds = new Set(progressState.completedMaterialIds || []);
+  const remainingMaterials = materials.filter((item) => !completedMaterialIds.has(item.materialId));
+  console.log(`Preparing to import ${remainingMaterials.length} IB materials.`);
+  if (progressFilePath) {
+    console.log(
+      `Resume progress: ${completedMaterialIds.size} completed, ${remainingMaterials.length} remaining.`
+    );
+  }
 
-  for (let materialIndex = 0; materialIndex < materials.length; materialIndex += 1) {
-    const item = materials[materialIndex];
-    const absoluteFilePath = path.isAbsolute(item.localFilePath)
-      ? item.localFilePath
-      : path.join(process.cwd(), item.localFilePath);
-    const rawText = await extractText(absoluteFilePath);
+  for (let materialIndex = 0; materialIndex < remainingMaterials.length; materialIndex += 1) {
+    const item = remainingMaterials[materialIndex];
+    const absoluteFilePath = resolveExistingMaterialPath(item.localFilePath || item.fileUrl);
+    if (!absoluteFilePath) {
+      const resolution = describeMaterialPathResolution(item.localFilePath || item.fileUrl);
+      throw new Error(
+        `Unable to resolve source file for ${item.titleCn || item.titleEn || item.materialId}. Checked: ${resolution.candidates.join(", ")}`
+      );
+    }
+    const extracted = await extractTextFromMaterial(absoluteFilePath, {
+      title: item.titleCn || item.titleEn || item.materialId,
+      materialType: item.type,
+    });
+    const rawText = extracted.text;
     const totalTokens = approximateTokenCount(rawText);
-    const material = normalizeManifestItem(item, absoluteFilePath, totalTokens);
+    const material = normalizeManifestItem(item, absoluteFilePath, totalTokens, extracted.extraction);
+    console.log(
+      `[${materialIndex + 1}/${remainingMaterials.length}] ${material.title} -> extraction ${material.textExtraction?.strategy || "unknown"} (${material.textExtraction?.quality?.level || "unknown"})`
+    );
 
     await db.collection(IB_MATERIALS_COLLECTION).updateOne(
       { materialId: material.materialId },
@@ -270,9 +319,11 @@ async function main() {
     );
 
     const chunkSize = item.type === "KNOWLEDGE_NOTE" ? 2400 : 3600;
-    const chunks = splitIntoChunks(rawText, item.chunkSize || chunkSize, item.overlapSize || 300);
+    const chunks = splitIntoChunks(rawText, item.chunkSize || chunkSize, item.overlapSize || 300, {
+      materialType: material.type,
+    });
     console.log(
-      `[${materialIndex + 1}/${materials.length}] ${material.title} -> ${chunks.length} chunks`
+      `[${materialIndex + 1}/${remainingMaterials.length}] ${material.title} -> ${chunks.length} chunks`
     );
     const stableChunkIds = chunks.map((_, index) => item.chunkIds?.[index] || createStableChunkId(material.materialId, index));
     const staleChunks = await db
@@ -330,11 +381,14 @@ async function main() {
             tags: material.tags,
             topics: material.topics,
             chunkIndex: index,
+            questionRef: chunk.questionRef || "",
             content: chunk.content,
             startPos: chunk.startPos,
             endPos: chunk.endPos,
             tokenCount,
             milvusVectorId,
+            textExtractionStrategy: material.textExtraction?.strategy || "unknown",
+            textExtractionQualityLevel: material.textExtraction?.quality?.level || "unknown",
             updatedAt: new Date().toISOString(),
           },
           $setOnInsert: {
@@ -344,6 +398,8 @@ async function main() {
         { upsert: true }
       );
     }
+
+    await markProgressCompleted(progressFilePath, progressState, material);
   }
 
   await milvus.loadCollection({ collection_name: collectionName });

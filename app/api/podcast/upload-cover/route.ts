@@ -1,28 +1,6 @@
 import { getUserFromRequest } from "@/lib/auth";
+import { uploadImage } from "@/lib/image-upload";
 import { NextRequest, NextResponse } from "next/server";
-
-async function uploadToCloudinary(buffer: Buffer): Promise<string> {
-  const { v2: cloudinary } = await import("cloudinary");
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-
-  return new Promise((resolve, reject) => {
-    cloudinary.uploader.upload_stream(
-      {
-        resource_type: "image",
-        folder: "ai-ethics-forum/podcast-covers",
-        transformation: [{ width: 800, height: 800, crop: "fill" }],
-      },
-      (error, result) => {
-        if (error || !result) reject(error ?? new Error("Upload failed"));
-        else resolve((result as { secure_url: string }).secure_url);
-      }
-    ).end(buffer);
-  });
-}
 
 export async function POST(request: NextRequest) {
   const user = getUserFromRequest(request);
@@ -42,15 +20,10 @@ export async function POST(request: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-
-    const hasCloudinary =
-      process.env.CLOUDINARY_CLOUD_NAME &&
-      process.env.CLOUDINARY_API_KEY &&
-      process.env.CLOUDINARY_API_SECRET;
-
-    const coverUrl = hasCloudinary
-      ? await uploadToCloudinary(buffer)
-      : `data:${file.type};base64,${buffer.toString("base64")}`;
+    const coverUrl = await uploadImage(buffer, file.type, {
+      folder: "ai-ethics-forum/podcast-covers",
+      transformation: [{ width: 800, height: 800, crop: "fill" }],
+    });
 
     return NextResponse.json({ ok: true, coverUrl });
   } catch (error) {

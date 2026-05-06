@@ -112,7 +112,7 @@ export default function SurveyResultsPage() {
 
       {/* AI Summary */}
       {data.aiSummary && (
-        <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-8 mb-8">
+        <div className="brand-warm-gradient-soft mb-8 rounded-lg border border-orange-100 p-8 dark:border-orange-500/20">
           <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
             🤖 AI {t("surveyAnalysis")}
           </h2>

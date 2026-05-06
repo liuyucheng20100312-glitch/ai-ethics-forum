@@ -21,10 +21,25 @@ export interface ZillizSearchHit {
 type MilvusModule = {
   MilvusClient: new (options: { address: string; token?: string; username?: string; password?: string }) => {
     search: (options: Record<string, unknown>) => Promise<unknown>;
+    upsert?: (options: Record<string, unknown>) => Promise<unknown>;
+    insert?: (options: Record<string, unknown>) => Promise<unknown>;
+    delete?: (options: Record<string, unknown>) => Promise<unknown>;
     loadCollection: (options: Record<string, unknown>) => Promise<unknown>;
     closeConnection?: () => Promise<unknown>;
   };
 };
+
+export interface ZillizTextVectorInput {
+  id: string;
+  content: string;
+  subjectId: number;
+  subjectCode: string;
+  materialType: string;
+  hlSl: string;
+  difficulty: number;
+  chunkTokenCount: number;
+  knowledgePointIds?: number[];
+}
 
 function isZillizConfigured(): boolean {
   return Boolean(process.env.ZILLIZ_CLOUD_ADDRESS && process.env.ZILLIZ_CLOUD_TOKEN);
@@ -116,6 +131,78 @@ export async function searchZillizByText(
     });
 
     return normalizeSearchResult(result);
+  } finally {
+    await client.closeConnection?.();
+  }
+}
+
+export async function upsertZillizTextVector(input: ZillizTextVectorInput): Promise<boolean> {
+  if (!isZillizConfigured() || !isQwenEmbeddingConfigured()) {
+    return false;
+  }
+
+  const { embedding } = await createQwenEmbedding(input.content);
+  const { MilvusClient } = await importMilvusSdk();
+  const collectionName = process.env.ZILLIZ_COLLECTION_NAME || "ib_material_embeddings";
+  const client = new MilvusClient({
+    address: process.env.ZILLIZ_CLOUD_ADDRESS || "",
+    token: process.env.ZILLIZ_CLOUD_TOKEN,
+  });
+  const payload = {
+    collection_name: collectionName,
+    data: [
+      {
+        id: input.id,
+        embedding,
+        subject_id: input.subjectId,
+        subject_code: input.subjectCode,
+        knowledge_point_ids: input.knowledgePointIds || [],
+        material_type: input.materialType,
+        hl_sl: input.hlSl,
+        difficulty: input.difficulty,
+        chunk_token_count: input.chunkTokenCount,
+      },
+    ],
+  };
+
+  try {
+    if (typeof client.upsert === "function") {
+      await client.upsert(payload);
+    } else {
+      await client.delete?.({
+        collection_name: collectionName,
+        ids: [input.id],
+      });
+      await client.insert?.(payload);
+    }
+
+    await client.loadCollection({ collection_name: collectionName });
+    return true;
+  } finally {
+    await client.closeConnection?.();
+  }
+}
+
+export async function deleteZillizVectors(ids: string[]): Promise<boolean> {
+  const uniqueIds = [...new Set(ids.map((item) => item.trim()).filter(Boolean))];
+  if (uniqueIds.length === 0 || !isZillizConfigured()) {
+    return false;
+  }
+
+  const { MilvusClient } = await importMilvusSdk();
+  const collectionName = process.env.ZILLIZ_COLLECTION_NAME || "ib_material_embeddings";
+  const client = new MilvusClient({
+    address: process.env.ZILLIZ_CLOUD_ADDRESS || "",
+    token: process.env.ZILLIZ_CLOUD_TOKEN,
+  });
+
+  try {
+    await client.delete?.({
+      collection_name: collectionName,
+      ids: uniqueIds,
+    });
+    await client.loadCollection({ collection_name: collectionName });
+    return true;
   } finally {
     await client.closeConnection?.();
   }

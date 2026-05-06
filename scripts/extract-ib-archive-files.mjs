@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { extractSourceFile } from "./lib/ib-archive-utils.mjs";
+import { getIbSourceRoot } from "./lib/ib-paths.mjs";
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -85,7 +86,7 @@ async function main() {
       pairs.flatMap((pair) => [pair.paperArchivePath, pair.markschemeArchivePath].filter(Boolean))
     ),
   ];
-  const sourceRoot = path.join(process.cwd(), "data", "ib", "source", manifest.sourceSlug || "archive");
+  const sourceRoot = path.join(getIbSourceRoot(), manifest.sourceSlug || "archive");
   await fs.mkdir(sourceRoot, { recursive: true });
 
   for (const member of archiveMembers) {

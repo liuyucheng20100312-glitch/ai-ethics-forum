@@ -2,6 +2,7 @@ import { getUserFromRequest } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import {
   findDocumentById,
+  normalizeExamRecord,
   STUDY_ANALYSES_COLLECTION,
   STUDY_EXAMS_COLLECTION,
   STUDY_PLANS_COLLECTION,
@@ -44,9 +45,11 @@ export async function GET(
       .limit(1)
       .toArray();
 
+    const normalizedExam = normalizeExamRecord(exam);
+
     return NextResponse.json({
       exam: {
-        ...exam,
+        ...normalizedExam,
         _id: String(exam._id),
       },
       latestAnalysis:

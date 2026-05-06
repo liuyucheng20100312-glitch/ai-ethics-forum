@@ -4,12 +4,15 @@ interface StudyModelOptions {
   maxTokens?: number;
   modelId?: string;
   apiUrl?: string;
+  timeoutMs?: number;
+  requestLabel?: string;
+  jsonMode?: boolean;
 }
 
 interface CompatibleChatCompletionResponse {
   choices?: Array<{
     message?: {
-      content?: string;
+      content?: string | Array<{ type?: string; text?: string }>;
     };
   }>;
 }
@@ -64,36 +67,100 @@ export async function callStudyAssistantChat(
   const apiKey = resolveStudyAssistantApiKey();
   const modelId = resolveStudyAssistantModelId(options);
   const apiUrl = resolveStudyAssistantApiUrl(options);
+  const timeoutMs = options.timeoutMs ?? 120_000;
+  const requestLabel = options.requestLabel || "study-assistant-chat";
 
   if (!apiKey) {
     return "";
   }
 
   try {
-    const response = await fetch(apiUrl, {
+    const controller = new AbortController();
+    const startedAt = Date.now();
+    const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+    const bodyPayload: Record<string, unknown> = {
+      model: modelId,
+      messages,
+      temperature: options.temperature ?? 0.3,
+      max_tokens: options.maxTokens ?? 2200,
+    };
+    if (options.jsonMode) {
+      bodyPayload.response_format = { type: "json_object" };
+    }
+    console.info(`[study-model] ${requestLabel} started`, {
+      modelId,
+      timeoutMs,
+      messageCount: messages.length,
+      jsonMode: Boolean(options.jsonMode),
+    });
+
+    let response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: modelId,
-        messages,
-        temperature: options.temperature ?? 0.3,
-        max_tokens: options.maxTokens ?? 2200,
-      }),
+      signal: controller.signal,
+      body: JSON.stringify(bodyPayload),
     });
 
+    if (!response.ok && options.jsonMode) {
+      const errorText = await response.text();
+      const likelyUnsupported = response.status === 400 && /response_format|json_object|invalid_parameter/i.test(errorText);
+      if (likelyUnsupported) {
+        console.warn(`[study-model] ${requestLabel} jsonMode unsupported, retrying without response_format`);
+        response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: modelId,
+            messages,
+            temperature: options.temperature ?? 0.3,
+            max_tokens: options.maxTokens ?? 2200,
+          }),
+        });
+      } else {
+        clearTimeout(timeoutHandle);
+        console.error(`[study-model] ${requestLabel} failed:`, response.status, errorText);
+        return "";
+      }
+    }
+
+    clearTimeout(timeoutHandle);
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Study assistant model request failed:", response.status, errorText);
+      console.error(`[study-model] ${requestLabel} failed:`, response.status, errorText);
       return "";
     }
 
     const data = (await response.json()) as CompatibleChatCompletionResponse;
-    return data.choices?.[0]?.message?.content?.trim() || "";
+    const content = data.choices?.[0]?.message?.content;
+    const normalizedContent =
+      typeof content === "string"
+        ? content.trim()
+        : Array.isArray(content)
+          ? content
+              .map((item) => (typeof item?.text === "string" ? item.text : ""))
+              .join("\n")
+              .trim()
+          : "";
+    console.info(`[study-model] ${requestLabel} completed`, {
+      durationMs: Date.now() - startedAt,
+      contentType: Array.isArray(content) ? "array" : typeof content,
+      contentLength: normalizedContent.length,
+    });
+    return normalizedContent;
   } catch (error) {
-    console.error("Study assistant model request threw an error:", error);
+    if (error instanceof Error && error.name === "AbortError") {
+      console.warn(`[study-model] ${requestLabel} timed out after ${timeoutMs}ms`);
+      return "";
+    }
+
+    console.error(`[study-model] ${requestLabel} threw an error:`, error);
     return "";
   }
 }

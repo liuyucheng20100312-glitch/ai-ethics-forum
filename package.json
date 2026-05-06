@@ -21,6 +21,11 @@
     "ib:import-archive-root": "node scripts/import-ib-archive-root.mjs",
     "ib:bootstrap-rag": "node scripts/bootstrap-ib-rag.mjs",
     "ib:import-materials": "node scripts/import-ib-materials.mjs",
+    "ib:audit-material-quality": "node scripts/audit-ib-material-quality.mjs",
+    "ib:repair-materials": "node scripts/repair-ib-materials-from-manifest.mjs",
+    "ib:lab-material": "node scripts/lab-ib-material.mjs",
+    "ib:repair-readable-chunks": "node scripts/repair-ib-readable-chunks.mjs",
+    "ib:validate-import-rules": "node scripts/validate-ib-import-rules.mjs",
     "ib:smoke-test-rag": "node scripts/smoke-test-ib-rag.mjs",
     "ib:evaluate-rag": "node scripts/evaluate-ib-rag.mjs",
     "ib:import-pre2015-stem": "powershell -ExecutionPolicy Bypass -File scripts/import-ib-pre-2015-stem.ps1"
@@ -36,7 +41,8 @@
     "pdf-parse": "^2.4.5",
     "puppeteer": "^24.37.5",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "tencentcloud-sdk-nodejs": "^4.1.218"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",

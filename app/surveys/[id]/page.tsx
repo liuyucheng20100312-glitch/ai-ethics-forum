@@ -267,7 +267,7 @@ export default function SurveyDetailPage() {
         <div className="space-y-8">
           {/* AI Analysis */}
           {aiAnalysis && (
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-8">
+            <div className="brand-warm-gradient-soft rounded-lg border border-orange-100 p-8 dark:border-orange-500/20">
               <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                 🤖 {t("aiAnalysisTitle")}
               </h2>

@@ -1,39 +1,8 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromRequest } from "@/lib/auth";
+import { uploadImage } from "@/lib/image-upload";
+import { updateUserProfileFields } from "@/lib/user-profile-store";
 import { NextRequest, NextResponse } from "next/server";
-
-function tryObjectId(id: string) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { ObjectId } = require("mongodb");
-    return new ObjectId(id);
-  } catch {
-    return id;
-  }
-}
-
-async function uploadToCloudinary(buffer: Buffer, mimeType: string): Promise<string> {
-  const { v2: cloudinary } = await import("cloudinary");
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-  return new Promise((resolve, reject) => {
-    cloudinary.uploader.upload_stream(
-      {
-        resource_type: "image",
-        folder: "ai-ethics-forum/avatars",
-        transformation: [{ width: 200, height: 200, crop: "fill", gravity: "face" }],
-      },
-      (error, result) => {
-        if (error || !result) reject(error ?? new Error("Cloudinary upload failed"));
-        else resolve((result as { secure_url: string }).secure_url);
-      }
-    ).end(buffer);
-  });
-  void mimeType;
-}
 
 export async function POST(request: NextRequest) {
   const user = getUserFromRequest(request);
@@ -47,46 +16,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请选择图片" }, { status: 400 });
     }
     if (file.size > 2 * 1024 * 1024) {
-      return NextResponse.json({ error: "图片不能超过 2MB（已自动压缩，若仍失败请换张更小的图）" }, { status: 400 });
+      return NextResponse.json({ error: "图片不能超过 2MB" }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-
-    let avatarUrl: string;
-
-    const hasCloudinary =
-      process.env.CLOUDINARY_CLOUD_NAME &&
-      process.env.CLOUDINARY_API_KEY &&
-      process.env.CLOUDINARY_API_SECRET;
-
-    if (hasCloudinary) {
-      // Upload to Cloudinary → permanent CDN URL
-      avatarUrl = await uploadToCloudinary(buffer, file.type);
-    } else {
-      // Fallback: store as base64 data URL directly in MongoDB Atlas
-      // Atlas supports up to 16MB per document; a 5MB image → ~6.7MB base64, fine.
-      const base64 = buffer.toString("base64");
-      avatarUrl = `data:${file.type};base64,${base64}`;
-    }
+    const avatarUrl = await uploadImage(buffer, file.type, {
+      folder: "ai-ethics-forum/avatars",
+      transformation: [{ width: 200, height: 200, crop: "fill", gravity: "face" }],
+    });
 
     const { db } = await connectToDatabase();
-    const userIdFilter = { _id: tryObjectId(user.userId) as never };
-    const result = await db.collection("users").updateOne(userIdFilter, { $set: { avatar: avatarUrl } });
-    if (result.matchedCount === 0) {
-      // Fallback: try matching by username
-      const resultByUsername = await db.collection("users").updateOne(
-        { username: user.username },
-        { $set: { avatar: avatarUrl } }
-      );
-      if (resultByUsername.matchedCount === 0) {
-        return NextResponse.json({ error: "找不到用户记录，请重新登录后重试" }, { status: 404 });
-      }
+    const updated = await updateUserProfileFields(db, user, { avatar: avatarUrl });
+    if (!updated) {
+      return NextResponse.json({ error: "未找到用户记录，请重新登录后重试" }, { status: 404 });
     }
 
     return NextResponse.json({ ok: true, avatar: avatarUrl });
-  } catch (e) {
-    console.error("头像上传失败:", e);
+  } catch (error) {
+    console.error("头像上传失败:", error);
     return NextResponse.json({ error: "上传失败，请重试" }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { getUserFromRequest } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import {
+  captureVerifiedQuestionsForKnowledgeBase,
   findDocumentById,
   generateStudyAnalysisBundle,
   normalizeExamRecord,
@@ -41,10 +42,13 @@ export async function POST(
       );
     }
 
-    const bundle = await generateStudyAnalysisBundle(db, {
-      ...examDocument,
+    const normalizedExamDocument = {
+      ...exam,
       _id: String(examDocument._id),
-    });
+    };
+
+    const bundle = await generateStudyAnalysisBundle(db, normalizedExamDocument);
+    const knowledgeCapture = await captureVerifiedQuestionsForKnowledgeBase(db, normalizedExamDocument);
     const now = new Date().toISOString();
 
     await db.collection(STUDY_PLANS_COLLECTION).updateMany(
@@ -82,6 +86,8 @@ export async function POST(
       horizonDays: bundle.plan.horizonDays,
       dailyMinutes: bundle.plan.dailyMinutes,
       goals: bundle.plan.goals,
+      strategicOverview: bundle.plan.strategicOverview,
+      planTable: bundle.plan.planTable,
       tasks: bundle.plan.tasks,
       checkpoints: bundle.plan.checkpoints,
       coachStrategy: bundle.plan.coachStrategy,
@@ -96,6 +102,7 @@ export async function POST(
       { _id: examDocument._id as never },
       {
         $set: {
+          questions: exam.questions,
           updatedAt: now,
         },
       }
@@ -110,6 +117,7 @@ export async function POST(
         ...planRecord,
         _id: planInsert.insertedId.toString(),
       },
+      knowledgeCapture,
     });
   } catch (error) {
     console.error("Failed to analyze study exam:", error);

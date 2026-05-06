@@ -227,7 +227,7 @@ export default function SurveyPage() {
 
         {/* 结果展示区 */}
         {result && (
-          <div className="mt-12 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-gray-800 dark:to-gray-900 border border-blue-200 dark:border-gray-600 rounded-xl p-8 shadow-inner animate-fade-in-up">
+          <div className="brand-warm-gradient-soft mt-12 rounded-xl border border-orange-100 p-8 shadow-inner animate-fade-in-up dark:border-orange-500/20">
             <h2 className="text-2xl font-bold mb-6 text-center text-blue-800 dark:text-blue-300">评测结果分析</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

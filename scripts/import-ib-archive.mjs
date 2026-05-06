@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
+import { getDefaultIbArchivePath } from "./lib/ib-paths.mjs";
 
-const DEFAULT_ARCHIVE = "D:\\wendang\\IB\\May2015 papers.rar";
+const DEFAULT_ARCHIVE = getDefaultIbArchivePath("May2015 papers.rar");
 const DEFAULT_PAIR_MANIFEST = "data/ib/archive-manifests/may2015-core-pairs.json";
 const DEFAULT_IMPORT_MANIFEST = "data/ib/archive-manifests/may2015-materials-import.json";
 

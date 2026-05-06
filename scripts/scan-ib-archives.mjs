@@ -1,11 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { inferSessionYear, isArchivePath, safeSlug } from "./lib/ib-archive-utils.mjs";
+import { getIbArchiveRoot } from "./lib/ib-paths.mjs";
 
 function parseArgs() {
   const args = process.argv.slice(2);
   const options = {
-    root: "D:\\wendang\\IB",
+    root: getIbArchiveRoot(),
     out: "data/ib/archive-manifests/archive-scan.json",
   };
 

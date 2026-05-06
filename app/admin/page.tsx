@@ -33,6 +33,16 @@ export default function AdminPage() {
       color: "from-emerald-600 to-teal-500",
     },
     {
+      href: "/admin/study-question-bank",
+      icon: "QS",
+      title: language === "zh" ? "学习题库审核" : "Study Question Review",
+      desc:
+        language === "zh"
+          ? "审核自动学习收录的高质量题目，批准后写入向量知识库"
+          : "Review auto-captured questions and publish approved items to the vector knowledge base",
+      color: "from-cyan-600 to-emerald-500",
+    },
+    {
       href: "/admin/podcast",
       icon: "🎧",
       title: language === "zh" ? "播客专辑" : "Podcast Albums",

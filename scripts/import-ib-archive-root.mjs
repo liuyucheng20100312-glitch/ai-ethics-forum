@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { inferSessionYear, isArchivePath, safeSlug } from "./lib/ib-archive-utils.mjs";
+import { getIbArchiveRoot } from "./lib/ib-paths.mjs";
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -190,7 +191,7 @@ async function main() {
 
   for (const source of sources) {
     const slug = source.slug || safeSlug(source.name);
-    const sourcePath = await resolveSourcePath(scan.root, source);
+    const sourcePath = await resolveSourcePath(scan.root || getIbArchiveRoot(), source);
     try {
       await fs.access(sourcePath);
     } catch {

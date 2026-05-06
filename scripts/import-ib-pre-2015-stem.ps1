@@ -14,6 +14,8 @@ param(
 
   [switch]$NoRequireMarkscheme,
 
+  [switch]$ValidateRules,
+
   [switch]$RunChecks
 )
 
@@ -39,6 +41,16 @@ function Invoke-IbRagChecks {
     if ($LASTEXITCODE -ne 0) {
       throw "ib:evaluate-rag failed for $($item.Subject)"
     }
+  }
+}
+
+function Invoke-IbRuleValidation {
+  Write-Host ""
+  Write-Host "=== Import rule validation ===" -ForegroundColor Yellow
+
+  & npm run ib:validate-import-rules -- --cases "legacy-2001-2008,paper-only-2011,paper-only-2013,markscheme-2014"
+  if ($LASTEXITCODE -ne 0) {
+    throw "ib:validate-import-rules failed"
   }
 }
 
@@ -87,20 +99,34 @@ function Invoke-IbImportBatch {
   }
 }
 
+function Write-Pre2015StrategySummary {
+  Write-Host ""
+  Write-Host "Strategy summary:" -ForegroundColor Yellow
+  Write-Host "- 2011-2013: tolerant mode, do not require markscheme pairing."
+  Write-Host "- 2014: strict paired mode, require paper + markscheme."
+  Write-Host "- 2001-2008 legacy: mixed markscheme coverage exists, but helper still uses tolerant mode for breadth and stability."
+  Write-Host "- If you need to re-check rule behavior first, add -ValidateRules."
+}
+
 Write-Host "IB pre-2015 STEM import mode: $Mode" -ForegroundColor Green
 Write-Host "Subjects: $Subjects"
 Write-Host "Scan: $Scan"
+Write-Pre2015StrategySummary
+
+if ($ValidateRules) {
+  Invoke-IbRuleValidation
+}
 
 if (-not $OnlyLegacy) {
   Invoke-IbImportBatch -Label "2011 May + Nov (paper-only tolerant)" -Sources "may2011,nov2011" -AllowMissingMarkscheme
   Invoke-IbImportBatch -Label "2012 May + Nov (paper-only tolerant)" -Sources "may2012,nov2012" -AllowMissingMarkscheme
   Invoke-IbImportBatch -Label "2013 May + Nov (paper-only tolerant)" -Sources "may2013,nov2013" -AllowMissingMarkscheme
-  Invoke-IbImportBatch -Label "2014 May + Nov" -Sources "may2014,nov2014"
+  Invoke-IbImportBatch -Label "2014 May + Nov (strict paired mode)" -Sources "may2014,nov2014"
 }
 
 if ($IncludeLegacy -or $OnlyLegacy) {
   Invoke-IbImportBatch `
-    -Label "Legacy 2001-2008 folders" `
+    -Label "Legacy 2001-2008 folders (mixed markscheme coverage, tolerant mode)" `
     -Sources "session2001,session2001-2" `
     -AllowMissingMarkscheme
 }

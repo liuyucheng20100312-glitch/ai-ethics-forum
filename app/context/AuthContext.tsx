@@ -7,6 +7,7 @@ export interface AuthUser {
   username: string;
   bio: string;
   avatar: string;
+  backgroundImage?: string;
   realName?: string;
   classId?: string;
   verified?: boolean;

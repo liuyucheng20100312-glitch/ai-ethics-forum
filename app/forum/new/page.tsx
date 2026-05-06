@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { useLanguage } from "@/app/context/LanguageContext";
@@ -14,6 +14,21 @@ const CATEGORY_KEYS: { value: string; key: TranslationKey }[] = [
   { value: "社会影响", key: "catSocial" },
   { value: "创意想法", key: "catCreative" },
 ];
+
+interface SensitiveWordPayload {
+  word?: string;
+}
+
+interface PublishErrorPayload {
+  error?: string;
+  requiresConfirmation?: boolean;
+  requiresReviewAfterConfirmation?: boolean;
+  sensitiveWords?: SensitiveWordPayload[];
+}
+
+interface PublishSuccessPayload {
+  status?: "approved" | "pending" | "rejected" | "hidden";
+}
 
 function GuestBlock({ t }: { t: (k: TranslationKey) => string }) {
   return (
@@ -32,7 +47,8 @@ function GuestBlock({ t }: { t: (k: TranslationKey) => string }) {
 export default function NewPostPage() {
   const router = useRouter();
   const { user, loading: authLoading, isGuest, authFetch } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+
   const [formData, setFormData] = useState({
     title: "",
     titleEn: "",
@@ -43,10 +59,64 @@ export default function NewPostPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const errorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!error) return;
+    errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    errorRef.current?.focus();
+  }, [error]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const buildRequestBody = (forcePublish = false): Record<string, string | boolean> => {
+    const body: Record<string, string | boolean> = {
+      title: formData.title,
+      category: formData.category,
+      content: formData.content,
+    };
+
+    if (formData.titleEn.trim()) body.titleEn = formData.titleEn.trim();
+    if (formData.contentEn.trim()) body.contentEn = formData.contentEn.trim();
+    if (formData.linkUrl.trim() && user?.isAdmin) body.linkUrl = formData.linkUrl.trim();
+    if (forcePublish) body.forcePublish = true;
+
+    return body;
+  };
+
+  const submitPost = async (forcePublish = false) =>
+    authFetch("/api/posts", {
+      method: "POST",
+      body: JSON.stringify(buildRequestBody(forcePublish)),
+    });
+
+  const parseErrorPayload = async (response: Response): Promise<{ message: string; payload: PublishErrorPayload | null }> => {
+    let message = t("publishFailed");
+    let payload: PublishErrorPayload | null = null;
+
+    try {
+      payload = (await response.json()) as PublishErrorPayload;
+      if (typeof payload.error === "string" && payload.error.trim()) {
+        message = payload.error;
+      }
+    } catch {
+      payload = null;
+    }
+
+    return { message, payload };
+  };
+
+  const getSuccessMessage = (payload: PublishSuccessPayload | null) => {
+    if (payload?.status === "pending") {
+      return language === "zh"
+        ? "已提交审核，管理员审核通过后将展示。"
+        : "Submitted for review. It will be visible after admin approval.";
+    }
+
+    return t("postSuccess");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,32 +124,62 @@ export default function NewPostPage() {
     setLoading(true);
     setError("");
 
-    if (!formData.title || !formData.content) {
+    if (!formData.title.trim() || !formData.content.trim()) {
       setError(t("fillRequired"));
       setLoading(false);
       return;
     }
 
     try {
-      // author/authorId are derived server-side from the JWT — do not send them
-      const body: Record<string, string> = {
-        title: formData.title,
-        category: formData.category,
-        content: formData.content,
-      };
-      if (formData.titleEn.trim()) body.titleEn = formData.titleEn.trim();
-      if (formData.contentEn.trim()) body.contentEn = formData.contentEn.trim();
-      if (formData.linkUrl.trim() && user?.isAdmin) body.linkUrl = formData.linkUrl.trim();
+      let finalResponse = await submitPost(false);
 
-      // Use authFetch so the Authorization header is included
-      const response = await authFetch("/api/posts", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      if (!finalResponse.ok) {
+        const { message, payload } = await parseErrorPayload(finalResponse);
+        const requiresConfirmation = Boolean(payload?.requiresConfirmation);
 
-      if (!response.ok) throw new Error(t("publishFailed"));
+        if (!requiresConfirmation) {
+          throw new Error(message);
+        }
 
-      alert(t("postSuccess"));
+        const detectedWords = Array.isArray(payload?.sensitiveWords)
+          ? payload.sensitiveWords
+              .map((item) => item.word)
+              .filter((word): word is string => typeof word === "string" && word.trim().length > 0)
+          : [];
+
+        const wordsText = detectedWords.length > 0 ? detectedWords.join("、") : message;
+        const reviewNotice = payload?.requiresReviewAfterConfirmation
+          ? language === "zh"
+            ? "\n\n继续提交后将进入管理员审核，审核通过后才会展示。"
+            : "\n\nIf you continue, this post will enter admin review and become visible only after approval."
+          : "";
+
+        const confirmMessage =
+          language === "zh"
+            ? `检测到敏感词：${wordsText}\n\n是否继续发布？${reviewNotice}`
+            : `Sensitive words detected: ${wordsText}\n\nDo you want to continue publishing?${reviewNotice}`;
+
+        const confirmed = window.confirm(confirmMessage);
+        if (!confirmed) {
+          setError(message);
+          return;
+        }
+
+        finalResponse = await submitPost(true);
+        if (!finalResponse.ok) {
+          const { message: forceMessage } = await parseErrorPayload(finalResponse);
+          throw new Error(forceMessage);
+        }
+      }
+
+      let successPayload: PublishSuccessPayload | null = null;
+      try {
+        successPayload = (await finalResponse.json()) as PublishSuccessPayload;
+      } catch {
+        successPayload = null;
+      }
+
+      alert(getSuccessMessage(successPayload));
       router.push("/forum");
     } catch (err) {
       setError(err instanceof Error ? err.message : t("publishFailed"));
@@ -97,12 +197,16 @@ export default function NewPostPage() {
 
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 space-y-6">
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div
+            ref={errorRef}
+            role="alert"
+            tabIndex={-1}
+            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded outline-none"
+          >
             {error}
           </div>
         )}
 
-        {/* Title (Chinese) */}
         <div>
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
             {t("postTitle")} *
@@ -119,7 +223,6 @@ export default function NewPostPage() {
           <p className="text-xs text-gray-500 mt-1">{formData.title.length}/100</p>
         </div>
 
-        {/* Title (English, optional) */}
         <div>
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
             {t("titleEnLabel")}
@@ -135,7 +238,6 @@ export default function NewPostPage() {
           />
         </div>
 
-        {/* Author (read-only) */}
         <div>
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">{t("username")}</label>
           <div className="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 text-sm">
@@ -143,7 +245,6 @@ export default function NewPostPage() {
           </div>
         </div>
 
-        {/* Category */}
         <div>
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
             {t("selectCategory")} *
@@ -160,7 +261,6 @@ export default function NewPostPage() {
           </select>
         </div>
 
-        {/* Content (Chinese) */}
         <div>
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
             {t("contentLabel")} *
@@ -175,7 +275,6 @@ export default function NewPostPage() {
           />
         </div>
 
-        {/* Content (English, optional) */}
         <div>
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
             {t("contentEnLabel")}
@@ -190,7 +289,6 @@ export default function NewPostPage() {
           />
         </div>
 
-        {/* Link URL (admin only) */}
         {user?.isAdmin && (
           <div>
             <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
@@ -208,7 +306,6 @@ export default function NewPostPage() {
           </div>
         )}
 
-        {/* Buttons */}
         <div className="flex gap-4">
           <button
             type="submit"

@@ -16,8 +16,9 @@ import {
   splitNestedArchiveMemberPath,
   toMaterializedSourcePath,
 } from "./lib/ib-archive-utils.mjs";
+import { getDefaultIbArchivePath } from "./lib/ib-paths.mjs";
 
-const DEFAULT_ARCHIVE = "D:\\wendang\\IB\\May2015 papers.rar";
+const DEFAULT_ARCHIVE = getDefaultIbArchivePath("May2015 papers.rar");
 const DEFAULT_OUTPUT = "data/ib/archive-manifests/may2015-core-pairs.json";
 const CORE_SUBJECTS = new Set(["Mathematics", "Physics", "Chemistry", "Biology", "Economics"]);
 
